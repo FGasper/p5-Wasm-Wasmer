@@ -31,8 +31,8 @@ my $instance = $module->create_instance(
             sub {
                 my ($msg, $filename, $line, $col) = @_;
 
-                my $msg = $ascript->get_text($msg);
-                my $filename = $ascript->get_text($filename);
+                $msg = $ascript->get_text($msg);
+                $filename = $ascript->get_text($filename);
 
                 die "$filename: $msg (line $line, col $col)";
             },
@@ -54,6 +54,12 @@ $ascript = Wasm::AssemblyScript->new(
 );
 
 my $specimen = $ascript->new_text('1.2.3.04')->pin();
+
+print `ps aux | grep $$`;
+
+$instance->call('validate_ipv4', $specimen->ptr()) for 1 .. 10000;
+
+print `ps aux | grep $$`;
 
 my $got = $instance->call('validate_ipv4', $specimen->ptr());
 

@@ -16,6 +16,8 @@
 #define MEMORY_CLASS "Wasm::Wasmer::Memory"
 #define FUNCTION_CLASS "Wasm::Wasmer::Function"
 
+#define own
+
 #ifdef MULTIPLICITY
 #   define WASM_WASMER_MUST_STORE_PERL 1
 #else
@@ -28,11 +30,11 @@ typedef struct {
     wasm_store_t* store;
 
     union {
-        wasm_engine_t* own;
+        wasm_engine_t* mine;
         SV* sv;
     } engine;
 
-    bool engine_is_own;
+    bool engine_is_mine;
 } store_holder_t;
 
 typedef struct {
@@ -135,7 +137,7 @@ void print_wasmer_error()
 
 unsigned _call_wasm( pTHX_ SV** SP, wasm_func_t* function, wasm_exporttype_t* export_type, SV** given_arg, unsigned given_args_count ) {
 
-    const wasm_functype_t* functype = wasm_func_type(function);
+    own wasm_functype_t* functype = wasm_func_type(function);
 
     const wasm_valtype_vec_t* params = wasm_functype_params(functype);
     const wasm_valtype_vec_t* results = wasm_functype_results(functype);
@@ -143,10 +145,10 @@ unsigned _call_wasm( pTHX_ SV** SP, wasm_func_t* function, wasm_exporttype_t* ex
     unsigned params_count = params->size;
     unsigned results_count = results->size;
 
-    wasm_valkind_t param_kind[params_count];
+    wasm_valkind_t param_kind[given_args_count];
     wasm_valkind_t result_kind[results_count];
 
-    for (unsigned i=0; i<params_count; i++) {
+    for (unsigned i=0; i<given_args_count; i++) {
         param_kind[i] = wasm_valtype_kind(params->data[i]);
     }
 
@@ -154,22 +156,23 @@ unsigned _call_wasm( pTHX_ SV** SP, wasm_func_t* function, wasm_exporttype_t* ex
         result_kind[i] = wasm_valtype_kind(results->data[i]);
     }
 
-    if (given_args_count != params_count) {
+    wasm_functype_delete(functype);
+
+    if (given_args_count > params_count) {
         const wasm_name_t* name = wasm_exporttype_name(export_type);
 
-        croak("“%.*s” requires %u input(s); %u given", (int)name->size, name->data, params_count, given_args_count);
+        croak("“%.*s” expects %u input(s); %u given", (int)name->size, name->data, params_count, given_args_count);
     }
 
-    if ((results_count > 1) && GIMME_V != !G_ARRAY) {
+    if ((results_count > 1) && GIMME_V == G_SCALAR) {
         const wasm_name_t* name = wasm_exporttype_name(export_type);
 
-        croak("“%.*s” returns multiple values (%u); called in %s context", (int)name->size, name->data, results_count, GIMME_V == G_VOID ? "void" : "scalar");
+        croak("“%.*s” returns multiple values (%u); called in scalar context", (int)name->size, name->data, results_count);
     }
 
+    wasm_val_t wasm_param[given_args_count];
 
-    wasm_val_t wasm_param[params_count];
-
-    for (unsigned i=0; i<params_count; i++) {
+    for (unsigned i=0; i<given_args_count; i++) {
         wasm_param[i].kind = param_kind[i];
 
         switch (param_kind[i]) {
@@ -203,7 +206,7 @@ unsigned _call_wasm( pTHX_ SV** SP, wasm_func_t* function, wasm_exporttype_t* ex
     wasm_val_vec_t params_vec = WASM_ARRAY_VEC(wasm_param);
     wasm_val_vec_t results_vec = WASM_ARRAY_VEC(wasm_result);
 
-    wasm_trap_t* trap = wasm_func_call(function, &params_vec, &results_vec);
+    own wasm_trap_t* trap = wasm_func_call(function, &params_vec, &results_vec);
 
     if (trap != NULL) {
         wasm_name_t message;
@@ -212,6 +215,7 @@ unsigned _call_wasm( pTHX_ SV** SP, wasm_func_t* function, wasm_exporttype_t* ex
         SV* err_sv = newSVpv(message.data, 0);
 
         wasm_name_delete(&message);
+        wasm_trap_delete(trap);
 
         // TODO: Exception object so it can contain the trap
         croak_sv(err_sv);
@@ -546,11 +550,11 @@ new (SV* class_sv, SV* engine_sv=NULL)
         store_holder_p->store = store;
 
         if (engine_sv == NULL) {
-            store_holder_p->engine_is_own = true;
-            store_holder_p->engine.own = engine;
+            store_holder_p->engine_is_mine = true;
+            store_holder_p->engine.mine = engine;
         }
         else {
-            store_holder_p->engine_is_own = false;
+            store_holder_p->engine_is_mine = false;
             store_holder_p->engine.sv = SvRV(engine_sv);
 
             SvREFCNT_inc(store_holder_p->engine.sv);
@@ -568,8 +572,8 @@ DESTROY (SV* self_sv)
 
         wasm_store_delete(store_holder_p->store);
 
-        if (store_holder_p->engine_is_own) {
-            wasm_engine_delete(store_holder_p->engine.own);
+        if (store_holder_p->engine_is_mine) {
+            wasm_engine_delete(store_holder_p->engine.mine);
         }
         else {
             SvREFCNT_dec(store_holder_p->engine.sv);
@@ -687,10 +691,9 @@ create_instance (SV* self_sv, SV* imports_sv=NULL)
                         results
                     );
 
-    fprintf(stderr, "made holder\n");
+                    own wasm_functype_t* host_func_type = wasm_functype_new((wasm_valtype_vec_t *) params, (wasm_valtype_vec_t *) results);
 
-                    wasm_functype_t* host_func_type = wasm_functype_new((wasm_valtype_vec_t *) params, (wasm_valtype_vec_t *) results);
-                    wasm_func_t* host_func = wasm_func_new_with_env(
+                    own wasm_func_t* host_func = wasm_func_new_with_env(
                         store_holder_p->store,
                         host_func_type,
                         host_func_callback,
@@ -710,15 +713,20 @@ fprintf(stderr, "made func\n");
             }
         }
 
-        wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
+        own wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
         wasm_trap_t* traps = NULL;
 
-        wasm_instance_t* instance = wasm_instance_new(
+        own wasm_instance_t* instance = wasm_instance_new(
             NULL, /* Ignored, per the documentation */
             module_holder_p->module,
             &imports,
             &traps
         );
+
+        for (unsigned i=0; i<import_types.size; i++) {
+            wasm_func_t* func = wasm_extern_as_func(externs[i]);
+            wasm_func_delete(func);
+        }
 
         // TODO: cleaner
         assert(instance);
@@ -943,9 +951,6 @@ call (SV* self_sv, SV* funcname_sv, ...)
 
             wasm_exporttype_t* export_type = export_types->data[i];
             wasm_func_t* func = wasm_extern_as_func(exports->data[i]);
-
-            // wasm_exporttype_vec_delete(&export_types);
-            // wasm_extern_vec_delete(&exports);
 
             unsigned retvals = _call_wasm( aTHX_ SP, func, export_type, &ST(2), given_args_count );
 
