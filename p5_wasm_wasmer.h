@@ -29,4 +29,12 @@ void croak_if_non_null_not_derived (pTHX_ SV *obj, const char* classname) {
     }
 }
 
+static inline AV* get_av_from_sv_or_croak (pTHX_ SV* sv, const char* description) {
+    if (!SvROK(sv) || SVt_PVAV != SvTYPE(SvRV(sv))) {
+        croak("%s must be an ARRAY reference, not `%" SVf "`", description, sv);
+    }
+
+    return (AV *) SvRV(sv);
+}
+
 #endif

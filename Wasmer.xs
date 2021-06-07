@@ -10,16 +10,6 @@
 #include <wasmer.h>
 //#include <wasmer_wasm.h>
 
-#include "p5_wasm_wasmer.h"
-#include "wasmer_engine.xsc"
-#include "wasmer_store.xsc"
-#include "wasmer_module.xsc"
-
-#define INSTANCE_CLASS "Wasm::Wasmer::Instance"
-#define WASI_INSTANCE_CLASS "Wasm::Wasmer::WasiInstance"
-#define MEMORY_CLASS "Wasm::Wasmer::Memory"
-#define FUNCTION_CLASS "Wasm::Wasmer::Function"
-
 #define own
 
 #ifdef MULTIPLICITY
@@ -30,12 +20,16 @@
 
 #define _DEBUG 1
 
-typedef struct {
-    wasm_instance_t* instance;
-    SV* module_sv;
+#include "p5_wasm_wasmer.h"
+#include "wasmer_engine.xsc"
+#include "wasmer_store.xsc"
+#include "wasmer_module.xsc"
+#include "wasmer_instance.xsc"
 
-    wasm_extern_vec_t exports;
-} instance_holder_t;
+#define WASI_INSTANCE_CLASS "Wasm::Wasmer::WasiInstance"
+#define MEMORY_CLASS "Wasm::Wasmer::Memory"
+#define FUNCTION_CLASS "Wasm::Wasmer::Function"
+
 
 typedef struct {
     wasm_memory_t* memory;
@@ -222,79 +216,7 @@ unsigned _call_wasm( pTHX_ SV** SP, wasm_func_t* function, wasm_exporttype_t* ex
     return results_count;
 }
 
-static inline AV* _get_av_from_sv_or_croak (pTHX_ SV* sv, const char* description) {
-    if (!SvROK(sv) || SVt_PVAV != SvTYPE(SvRV(sv))) {
-        croak("%s must be an ARRAY reference, not `%" SVf "`", description, sv);
-    }
-
-    return (AV *) SvRV(sv);
-}
-
-CV* _get_import_coderef( pTHX_ AV* imports_av, const wasm_name_t* modname, const wasm_name_t* funcname ) {
-    for (SSize_t i=0; i<=av_top_index(imports_av); i++) {
-        SV** val = av_fetch(imports_av, i, 0);
-
-        if (val == NULL) {
-            croak("NULL found where ARRAY ref expected??");
-        }
-
-        if (!SvOK(*val)) {
-            croak("Uninitialized value found where ARRAY ref expected??");
-        }
-
-        AV* import_av = _get_av_from_sv_or_croak( aTHX_ *val, "Import" );
-
-        SV** el0 = av_fetch(import_av, 0, 0);
-
-        SV **el1, **el2, **el3;
-
-        if (el0 == NULL) {
-            croak("NULL found at start of import??");
-        }
-
-        switch (SvUV(*el0)) {
-            case WASM_EXTERN_FUNC: {
-fprintf(stderr, "got a func import\n");
-                    if (av_top_index(import_av) != 3) {
-                        croak("Function imports should have exactly 3 arguments, not %ld", 1 + av_top_index(import_av));
-                    }
-
-                    el1 = av_fetch(import_av, 1, 0);
-
-                    STRLEN perl_modname_len;
-                    const char* perl_modname = SvPVbyte(*el1, perl_modname_len);
-
-                    if (perl_modname_len != modname->size) break;
-                    if (!memEQ(perl_modname, modname->data, modname->size)) break;
-fprintf(stderr, "module name matches\n");
-
-                    el2 = av_fetch(import_av, 2, 0);
-
-                    STRLEN perl_funcname_len;
-                    const char* perl_funcname = SvPVbyte(*el2, perl_funcname_len);
-
-                    if (perl_funcname_len != funcname->size) break;
-                    if (!memEQ(perl_funcname, funcname->data, funcname->size)) break;
-fprintf(stderr, "func name matches\n");
-
-                    el3 = av_fetch(import_av, 3, 0);
-fprintf(stderr, "fetch 3\n");
-                    if (!SvROK(*el3) || SVt_PVCV != SvTYPE(SvRV(*el3))) {
-                        croak("Last arg to function import must be a coderef, not %" SVf, el3);
-                    }
-
-                    return (CV*) SvRV(*el3);
-                }
-
-                break;
-
-            default:
-                break;
-        }
-    }
-
-    return NULL;
-}
+#define _get_av_from_sv_or_croak get_av_from_sv_or_croak
 
 wasm_trap_t* host_func_callback( void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results ) {
     callback_holder_t* callback_holder_p = (callback_holder_t*) env;
@@ -527,112 +449,7 @@ DESTROY (SV* self_sv)
 SV*
 create_instance (SV* self_sv, SV* imports_sv=NULL)
     CODE:
-        AV* imports_av = NULL;
-
-        if (imports_sv) {
-            if (SvOK(imports_sv)) {
-                imports_av = _get_av_from_sv_or_croak( aTHX_ imports_sv, "Imports" );
-            }
-        }
-
-        module_holder_t* module_holder_p = _get_module_holder_p_from_sv(aTHX_ self_sv);
-
-        wasm_importtype_vec_t import_types;
-        wasm_module_imports(module_holder_p->module, &import_types);
-
-        SV* store_sv = module_holder_p->store_sv;
-        store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ store_sv);
-
-        wasm_extern_t* externs[import_types.size];
-
-        for (size_t i = 0; i < import_types.size; ++i) {
-            const wasm_name_t* modname = wasm_importtype_module(import_types.data[i]);
-            const wasm_name_t* name = wasm_importtype_name(import_types.data[i]);
-
-            if (_DEBUG) {
-                fprintf(stderr, "Import %zu: %.*s/%.*s\n", i, (int)modname->size, modname->data, (int)name->size, name->data);
-            }
-
-            const wasm_externtype_t* externtype = wasm_importtype_type(import_types.data[i]);
-
-            switch (wasm_externtype_kind(externtype)) {
-                case WASM_EXTERN_FUNC: {
-                    CV* coderef = _get_import_coderef(aTHX_ imports_av, modname, name);
-
-                    const wasm_functype_t* functype = wasm_externtype_as_functype_const(externtype);
-                    const wasm_valtype_vec_t* params = wasm_functype_params(functype);
-                    const wasm_valtype_vec_t* results = wasm_functype_results(functype);
-
-                    callback_holder_t* callback_holder_p;
-
-                    Newx(callback_holder_p, 1, callback_holder_t);
-
-                    callback_holder_p->store = store_holder_p->store;
-#if WASM_WASMER_MUST_STORE_PERL
-                    callback_holder_p->aTHX = aTHX;
-#endif
-                    callback_holder_p->coderef = coderef;
-                    SvREFCNT_inc( (SV*) coderef );
-                    callback_holder_p->modname = *modname;
-                    callback_holder_p->funcname = *name;
-
-                    wasm_valtype_vec_copy(
-                        &callback_holder_p->results,
-                        results
-                    );
-
-                    own wasm_functype_t* host_func_type = wasm_functype_new((wasm_valtype_vec_t *) params, (wasm_valtype_vec_t *) results);
-
-                    own wasm_func_t* host_func = wasm_func_new_with_env(
-                        store_holder_p->store,
-                        host_func_type,
-                        host_func_callback,
-                        callback_holder_p,
-                        free_callback_holder
-                    );
-fprintf(stderr, "made func\n");
-
-                    wasm_functype_delete(host_func_type);
-
-                    externs[i] = wasm_func_as_extern(host_func);
-                } break;
-
-                default:
-                    croak("Unhandled import type: %d\n", wasm_externtype_kind(externtype));
-                    break;
-            }
-        }
-
-        own wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
-        wasm_trap_t* traps = NULL;
-
-        own wasm_instance_t* instance = wasm_instance_new(
-            NULL, /* Ignored, per the documentation */
-            module_holder_p->module,
-            &imports,
-            &traps
-        );
-
-        for (unsigned i=0; i<import_types.size; i++) {
-            wasm_func_t* func = wasm_extern_as_func(externs[i]);
-            wasm_func_delete(func);
-        }
-
-        // TODO: cleaner
-        assert(instance);
-
-        instance_holder_t* instance_holder_p;
-
-        Newx(instance_holder_p, 1, instance_holder_t);
-
-        instance_holder_p->instance = instance;
-        instance_holder_p->module_sv = self_sv;
-
-        wasm_instance_exports(instance, &instance_holder_p->exports);
-
-        SvREFCNT_inc(self_sv);
-
-        RETVAL = _ptr_to_svrv(aTHX_ instance_holder_p, gv_stashpv(INSTANCE_CLASS, FALSE));
+        RETVAL = create_instance_sv(aTHX_ NULL, self_sv, imports_sv);
 
     OUTPUT:
         RETVAL
@@ -848,14 +665,7 @@ call (SV* self_sv, SV* funcname_sv, ...)
 void
 DESTROY (SV* self_sv)
     CODE:
-        instance_holder_t* instance_holder_p = _get_instance_holder_p_from_sv(aTHX_ self_sv);
-
-        wasm_instance_delete(instance_holder_p->instance);
-        wasm_extern_vec_delete(&instance_holder_p->exports);
-
-        SvREFCNT_dec(instance_holder_p->module_sv);
-
-        Safefree(instance_holder_p);
+        destroy_instance_sv(aTHX_ self_sv);
 
 # ----------------------------------------------------------------------
 
