@@ -1,0 +1,39 @@
+#ifndef P5_WASM_WASMER_MEMORY
+#define P5_WASM_WASMER_MEMORY 1
+
+#include "p5_wasm_wasmer.h"
+
+typedef struct {
+    wasm_memory_t* memory;
+    wasm_exporttype_t* export_type;
+
+    pid_t pid;
+
+    SV* instance_sv;
+} memory_holder_t;
+
+static inline SV* memory_sv_name_sv (pTHX_ SV* self_sv) {
+    memory_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+    const wasm_name_t* name = wasm_exporttype_name(memory_holder_p->export_type);
+
+    return newSVpvn( name->data, name->size );
+}
+
+static inline UV memory_sv_data_uv (pTHX_ SV* self_sv) {
+    memory_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+    return (UV) wasm_memory_data( memory_holder_p->memory );
+}
+
+static inline void destroy_memory_sv (pTHX_ SV* self_sv) {
+    memory_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+    warn_destruct_if_needed(self_sv, memory_holder_p->pid);
+
+    SvREFCNT_dec( memory_holder_p->instance_sv );
+
+    Safefree(memory_holder_p);
+}
+
+#endif

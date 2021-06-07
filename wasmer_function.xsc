@@ -1,0 +1,33 @@
+#ifndef P5_WASM_WASMER_FUNCTION
+#define P5_WASM_WASMER_FUNCTION 1
+
+#include "p5_wasm_wasmer.h"
+
+typedef struct {
+    wasm_func_t* function;
+    wasm_exporttype_t* export_type;
+
+    pid_t pid;
+
+    SV* instance_sv;
+} function_holder_t;
+
+static inline SV* function_sv_name_sv (pTHX_ SV* self_sv) {
+    function_holder_t* function_holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+    const wasm_name_t* name = wasm_exporttype_name(function_holder_p->export_type);
+
+    return newSVpvn( name->data, name->size );
+}
+
+static inline void destroy_function_sv (pTHX_ SV* self_sv) {
+    function_holder_t* function_holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+    warn_destruct_if_needed(self_sv, function_holder_p->pid);
+
+    SvREFCNT_dec( function_holder_p->instance_sv );
+
+    Safefree(function_holder_p);
+}
+
+#endif

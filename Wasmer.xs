@@ -25,25 +25,12 @@
 #include "wasmer_store.xsc"
 #include "wasmer_module.xsc"
 #include "wasmer_instance.xsc"
+#include "wasmer_function.xsc"
+#include "wasmer_memory.xsc"
 
 #define WASI_INSTANCE_CLASS "Wasm::Wasmer::WasiInstance"
 #define MEMORY_CLASS "Wasm::Wasmer::Memory"
 #define FUNCTION_CLASS "Wasm::Wasmer::Function"
-
-
-typedef struct {
-    wasm_memory_t* memory;
-    wasm_exporttype_t* export_type;
-
-    SV* instance_sv;
-} memory_holder_t;
-
-typedef struct {
-    wasm_func_t* function;
-    wasm_exporttype_t* export_type;
-
-    SV* instance_sv;
-} function_holder_t;
 
 #define _ptr_to_svrv ptr_to_svrv
 
@@ -355,6 +342,7 @@ create_wasi_instance (SV* self_sv, SV* imports_sv=NULL)
         Newx(instance_holder_p, 1, instance_holder_t);
 
         instance_holder_p->instance = instance;
+        instance_holder_p->pid      = getpid();
         instance_holder_p->module_sv = self_sv;
 
         wasm_instance_exports(instance, &instance_holder_p->exports);
@@ -377,17 +365,19 @@ export_memories (SV* self_sv)
     PPCODE:
         if (GIMME_V != G_ARRAY) croak("List context only!");
 
-        instance_holder_t* instance_holder_p = _get_instance_holder_p_from_sv(aTHX_ self_sv);
-
-        module_holder_t* module_holder_p = _get_module_holder_p_from_sv(aTHX_ instance_holder_p->module_sv);
-
-        wasm_exporttype_vec_t* export_types = &module_holder_p->export_types;
+        instance_holder_t* instance_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
         wasm_extern_vec_t* exports = &instance_holder_p->exports;
+
+        module_holder_t* module_holder_p = svrv_to_ptr(aTHX_ instance_holder_p->module_sv);
+
+        wasm_exporttype_vec_t* export_types = &module_holder_p->export_types;
 
         unsigned return_count = 0;
 
         SV* possible_memory_sv[exports->size];
+
+        pid_t pid = getpid();
 
         for (unsigned i = 0; i<exports->size; i++) {
             if (wasm_extern_kind(exports->data[i]) != WASM_EXTERN_MEMORY)
@@ -399,9 +389,10 @@ export_memories (SV* self_sv)
             wasm_memory_t* memory = wasm_extern_as_memory(exports->data[i]);
 
             memory_holder->memory = memory;
+            memory_holder->pid = pid;
             memory_holder->export_type = export_types->data[i];
 
-            memory_holder->instance_sv = SvRV(self_sv);
+            memory_holder->instance_sv = self_sv;
             SvREFCNT_inc(memory_holder->instance_sv);
 
             possible_memory_sv[return_count] = _ptr_to_svrv( aTHX_
@@ -414,7 +405,6 @@ export_memories (SV* self_sv)
 
         if (return_count) {
             EXTEND(SP, return_count);
-fprintf(stderr, "make memory x%d\n", return_count);
 
             for (unsigned i=0; i<return_count; i++)
                 mPUSHs(possible_memory_sv[i]);
@@ -442,6 +432,8 @@ export_functions (SV* self_sv)
 
         SV* possible_function_sv[exports->size];
 
+        pid_t pid = getpid();
+
         for (unsigned i = 0; i<exports->size; i++) {
             if (wasm_extern_kind(exports->data[i]) != WASM_EXTERN_FUNC)
                 continue;
@@ -452,12 +444,12 @@ export_functions (SV* self_sv)
             wasm_func_t* function = wasm_extern_as_func(exports->data[i]);
 
             function_holder->function = function;
+            function_holder->pid = pid;
             function_holder->export_type = export_types->data[i];
 
             function_holder->instance_sv = SvRV(self_sv);
             SvREFCNT_inc(function_holder->instance_sv);
 
-    fprintf(stderr, "making func\n");
             possible_function_sv[return_count] = _ptr_to_svrv( aTHX_
                 function_holder,
                 gv_stashpv(FUNCTION_CLASS, FALSE)
@@ -528,11 +520,7 @@ MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Memory
 SV*
 name (SV* self_sv)
     CODE:
-        memory_holder_t* memory_holder_p = _get_memory_holder_p_from_sv(aTHX_ self_sv);
-
-        const wasm_name_t* name = wasm_exporttype_name(memory_holder_p->export_type);
-
-        RETVAL = newSVpvn( name->data, name->size );
+        RETVAL = memory_sv_name_sv(aTHX_ self_sv);
 
     OUTPUT:
         RETVAL
@@ -540,9 +528,7 @@ name (SV* self_sv)
 UV
 data (SV* self_sv)
     CODE:
-        memory_holder_t* memory_holder_p = _get_memory_holder_p_from_sv(aTHX_ self_sv);
-
-        RETVAL = (UV) wasm_memory_data( memory_holder_p->memory );
+        RETVAL = memory_sv_data_uv(aTHX_ self_sv);
 
     OUTPUT:
         RETVAL
@@ -550,12 +536,7 @@ data (SV* self_sv)
 void
 DESTROY (SV* self_sv)
     CODE:
-        memory_holder_t* memory_holder_p = _get_memory_holder_p_from_sv(aTHX_ self_sv);
-        fprintf(stderr, "reap memory\n");
-
-        SvREFCNT_dec( memory_holder_p->instance_sv );
-
-        Safefree(memory_holder_p);
+        destroy_memory_sv(aTHX_ self_sv);
 
 # ----------------------------------------------------------------------
 
@@ -564,19 +545,12 @@ MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Function
 void
 DESTROY (SV* self_sv)
     CODE:
-        fprintf(stderr, "reap func\n");
-        function_holder_t* function_holder_p = _get_function_holder_p_from_sv(aTHX_ self_sv);
-        SvREFCNT_dec( function_holder_p->instance_sv );
-        Safefree(function_holder_p);
+        destroy_function_sv(aTHX_ self_sv);
 
 SV*
 name (SV* self_sv)
     CODE:
-        function_holder_t* function_holder_p = _get_function_holder_p_from_sv(aTHX_ self_sv);
-
-        const wasm_name_t* name = wasm_exporttype_name(function_holder_p->export_type);
-
-        RETVAL = newSVpvn( name->data, name->size );
+        RETVAL = function_sv_name_sv(aTHX_ self_sv);
 
     OUTPUT:
         RETVAL
@@ -584,7 +558,7 @@ name (SV* self_sv)
 void
 call (SV* self_sv, ...)
     PPCODE:
-        function_holder_t* function_holder_p = _get_function_holder_p_from_sv(aTHX_ self_sv);
+        function_holder_t* function_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
         unsigned count = _call_wasm( aTHX_ SP, function_holder_p->function, function_holder_p->export_type, &ST(1), items - 1 );
 
