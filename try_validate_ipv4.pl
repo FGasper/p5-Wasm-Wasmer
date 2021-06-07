@@ -22,7 +22,7 @@ print "created store\n";
 my $module = Wasm::Wasmer::Module->new($wasm, $store);
 print "created module\n";
 
-my $ascript;
+my ($ascript_rdr, $ascript_wtr);
 
 my $instance = $module->create_instance(
     [
@@ -31,8 +31,8 @@ my $instance = $module->create_instance(
             sub {
                 my ($msg, $filename, $line, $col) = @_;
 
-                $msg = $ascript->get_text($msg);
-                $filename = $ascript->get_text($filename);
+                $msg = $ascript_rdr->get_text($msg);
+                $filename = $ascript_rdr->get_text($filename);
 
                 die "$filename: $msg (line $line, col $col)";
             },
@@ -42,18 +42,24 @@ my $instance = $module->create_instance(
 
 print "created instance\n";
 
+$ascript_rdr = Wasm::AssemblyScript->new(
+    ($instance->export_memories())[0]->data(),
+);
+
 my %exports = map {
     my $fn = $_;
 
     ( $fn->name() => sub { $fn->call(@_) } ),
 } $instance->export_functions();
 
-$ascript = Wasm::AssemblyScript->new(
+() = ($instance->export_memories())[0]->data();
+
+$ascript_wtr = Wasm::AssemblyScript->new(
     ($instance->export_memories())[0]->data(),
     \%exports,
 );
 
-my $specimen = $ascript->new_text('1.2.3.04')->pin();
+my $specimen = $ascript_wtr->new_text('1.2.3.04')->pin();
 
 print `ps aux | grep $$`;
 
@@ -63,7 +69,7 @@ print `ps aux | grep $$`;
 
 my $got = $instance->call('validate_ipv4', $specimen->ptr());
 
-my $got_str = $ascript->get_text($got);
+my $got_str = $ascript_wtr->get_text($got);
 print Dumper( gotstr => $got_str );
 
 my $got_ar = JSON::decode_json($got_str);

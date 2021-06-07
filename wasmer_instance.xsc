@@ -5,6 +5,8 @@
 
 #include "wasmer_module.xsc"
 
+#include "wasmer_callback.xsc"
+
 #define P5_WASM_WASMER_INSTANCE_CLASS "Wasm::Wasmer::Instance"
 
 typedef struct {
@@ -196,7 +198,7 @@ fprintf(stderr, "made func\n");
     return ptr_to_svrv(aTHX_ instance_holder_p, gv_stashpv(class, FALSE));
 }
 
-void destroy_instance_sv (pTHX_ self_sv) {
+void destroy_instance_sv (pTHX_ SV* self_sv) {
     instance_holder_t* instance_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
     warn_destruct_if_needed(self_sv, instance_holder_p->pid);
