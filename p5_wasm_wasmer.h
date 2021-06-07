@@ -1,6 +1,15 @@
 #ifndef P5_WASM_WASMER_H
 #define P5_WASM_WASMER_H 1
 
+#define _IN_GLOBAL_DESTRUCTION (PL_phase == PERL_PHASE_DESTRUCT)
+
+#define warn_destruct_if_needed(sv, startpid) STMT_START { \
+    if (_IN_GLOBAL_DESTRUCTION && (getpid() == startpid)) warn( \
+        "%" SVf " destroyed at global destruction; memory leak likely!", \
+        sv \
+    ); \
+} STMT_END
+
 static inline SV* ptr_to_svrv (pTHX_ void* ptr, HV* stash) {
     SV* referent = newSVuv( PTR2UV(ptr) );
     SV* retval = newRV_noinc(referent);

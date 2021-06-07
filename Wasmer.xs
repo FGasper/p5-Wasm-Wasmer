@@ -68,16 +68,6 @@ typedef struct {
 
 #define _ptr_to_svrv ptr_to_svrv
 
-static inline wasm_engine_t* _get_engine_from_sv(pTHX_ SV *self_sv) {
-    SV *referent = SvRV(self_sv);
-    return INT2PTR(wasm_engine_t*, SvUV(referent));
-}
-
-static inline store_holder_t* _get_store_holder_p_from_sv(pTHX_ SV *self_sv) {
-    SV *referent = SvRV(self_sv);
-    return INT2PTR(store_holder_t*, SvUV(referent));
-}
-
 static inline module_holder_t* _get_module_holder_p_from_sv(pTHX_ SV *self_sv) {
     SV *referent = SvRV(self_sv);
     return INT2PTR(module_holder_t*, SvUV(referent));
@@ -487,9 +477,7 @@ new (SV* class_sv)
 void
 DESTROY (SV* self_sv)
     CODE:
-        wasm_engine_t* engine = _get_engine_from_sv(aTHX_ self_sv);
-
-        wasm_engine_delete(engine);
+        destroy_engine_sv(aTHX_ self_sv);
 
 # ----------------------------------------------------------------------
 
@@ -534,14 +522,7 @@ new (SV* class_sv, SV* wasm_sv, SV* store_sv=NULL)
 void
 DESTROY (SV* self_sv)
     CODE:
-        module_holder_t* module_holder_p = _get_module_holder_p_from_sv(aTHX_ self_sv);
-
-        wasm_module_delete(module_holder_p->module);
-        wasm_exporttype_vec_delete(&module_holder_p->export_types);
-
-        SvREFCNT_dec(module_holder_p->store_sv);
-
-        Safefree(module_holder_p);
+        destroy_module_sv(aTHX_ self_sv);
 
 SV*
 create_instance (SV* self_sv, SV* imports_sv=NULL)
@@ -559,8 +540,8 @@ create_instance (SV* self_sv, SV* imports_sv=NULL)
         wasm_importtype_vec_t import_types;
         wasm_module_imports(module_holder_p->module, &import_types);
 
-    SV* store_sv = module_holder_p->store_sv;
-    store_holder_t* store_holder_p = INT2PTR(store_holder_t*, SvUV(store_sv));
+        SV* store_sv = module_holder_p->store_sv;
+        store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ store_sv);
 
         wasm_extern_t* externs[import_types.size];
 
@@ -666,7 +647,7 @@ create_wasi_instance (SV* self_sv, SV* imports_sv=NULL)
 
         module_holder_t* module_holder_p = _get_module_holder_p_from_sv(aTHX_ self_sv);
     SV* store_sv = module_holder_p->store_sv;
-    store_holder_t* store_holder_p = INT2PTR(store_holder_t*, SvUV(store_sv));
+    store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ store_sv);
 
         wasm_trap_t* traps = NULL;
 

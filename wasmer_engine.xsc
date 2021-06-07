@@ -5,12 +5,35 @@
 
 #define P5_WASM_WASMER_ENGINE_CLASS "Wasm::Wasmer::Engine"
 
+typedef struct {
+    wasm_engine_t* engine;
+
+    pid_t pid;
+} engine_holder_t;
+
 SV* create_engine_sv (pTHX_ SV* class_sv) {
     const char* class = class_sv ? SvPVbyte_nolen(class_sv) : P5_WASM_WASMER_ENGINE_CLASS;
 
     wasm_engine_t* engine = wasm_engine_new();
 
-    return ptr_to_svrv(aTHX_ engine, gv_stashpv(class, FALSE));
+    engine_holder_t* engine_holder_p;
+
+    Newx(engine_holder_p, 1, engine_holder_t);
+
+    engine_holder_p->engine = engine;
+    engine_holder_p->pid = getpid();
+
+    return ptr_to_svrv(aTHX_ engine_holder_p, gv_stashpv(class, FALSE));
+}
+
+void destroy_engine_sv (pTHX_ SV* self_sv) {
+    engine_holder_t* engine_holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+    warn_destruct_if_needed(self_sv, engine_holder_p->pid);
+
+    wasm_engine_delete(engine_holder_p->engine);
+
+    Safefree(engine_holder_p);
 }
 
 #endif
