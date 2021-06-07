@@ -27,7 +27,7 @@ my $store = Wasm::Wasmer::Store->new();
 
 print STDERR "made store\n";
 
-my $module = Wasm::Wasmer::Module->new($store, $wasm);
+my $module = Wasm::Wasmer::Module->new($wasm, $store);
 
 print STDERR "made module\n";
 

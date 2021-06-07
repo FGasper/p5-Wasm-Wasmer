@@ -15,9 +15,10 @@ my $wasm = Wasm::Wasmer::wat2wasm($wat);
 use Data::Dumper;
 $Data::Dumper::Useqq = 1;
 
-my $store = Wasm::Wasmer::Store->new();
+my $engine = Wasm::Wasmer::Engine->new();
+my $store = Wasm::Wasmer::Store->new($engine);
 
-my $module = Wasm::Wasmer::Module->new($store, $wasm);
+my $module = Wasm::Wasmer::Module->new($wasm, $store);
 
 my $instance = $module->create_instance();
 

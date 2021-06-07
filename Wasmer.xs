@@ -10,7 +10,11 @@
 #include <wasmer.h>
 //#include <wasmer_wasm.h>
 
-#define ENGINE_CLASS "Wasm::Wasmer::Engine"
+#include "p5_wasm_wasmer.h"
+#include "wasmer_engine.xsc"
+#include "wasmer_store.xsc"
+#include "wasmer_module.xsc"
+
 #define INSTANCE_CLASS "Wasm::Wasmer::Instance"
 #define WASI_INSTANCE_CLASS "Wasm::Wasmer::WasiInstance"
 #define MEMORY_CLASS "Wasm::Wasmer::Memory"
@@ -25,24 +29,6 @@
 #endif
 
 #define _DEBUG 1
-
-typedef struct {
-    wasm_store_t* store;
-
-    union {
-        wasm_engine_t* mine;
-        SV* sv;
-    } engine;
-
-    bool engine_is_mine;
-} store_holder_t;
-
-typedef struct {
-    wasm_module_t* module;
-    SV* store_sv;
-
-    wasm_exporttype_vec_t export_types;
-} module_holder_t;
 
 typedef struct {
     wasm_instance_t* instance;
@@ -80,13 +66,7 @@ typedef struct {
     wasm_valtype_vec_t results;
 } callback_holder_t;
 
-static inline SV* _ptr_to_svrv(pTHX_ void* ptr, HV* stash) {
-    SV* referent = newSVuv( PTR2UV(ptr) );
-    SV* retval = newRV_noinc(referent);
-    sv_bless(retval, stash);
-
-    return retval;
-}
+#define _ptr_to_svrv ptr_to_svrv
 
 static inline wasm_engine_t* _get_engine_from_sv(pTHX_ SV *self_sv) {
     SV *referent = SvRV(self_sv);
@@ -499,11 +479,7 @@ new (SV* class_sv)
     CODE:
         if (!SvPOK(class_sv)) croak("Give a class name!");
 
-        const char* class = SvPVbyte_nolen(class_sv);
-
-        wasm_engine_t* engine = wasm_engine_new();
-
-        RETVAL = _ptr_to_svrv(aTHX_ engine, gv_stashpv(class, FALSE));
+        RETVAL = create_engine_sv(aTHX_ class_sv);
 
     OUTPUT:
         RETVAL
@@ -524,43 +500,11 @@ PROTOTYPES: DISABLE
 SV*
 new (SV* class_sv, SV* engine_sv=NULL)
     CODE:
-        if (engine_sv && !sv_derived_from(engine_sv, ENGINE_CLASS)) {
-            croak("Give a %s instance, or nothing. (Gave: %" SVf ")", ENGINE_CLASS, engine_sv);
-        }
+        croak_if_non_null_not_derived(aTHX_ engine_sv, P5_WASM_WASMER_ENGINE_CLASS);
 
         if (!SvPOK(class_sv)) croak("Give a class name!");
 
-        const char* class = SvPVbyte_nolen(class_sv);
-
-        wasm_engine_t* engine = NULL;
-
-        if (engine_sv == NULL) {
-            engine = wasm_engine_new();
-        }
-        else {
-            engine = _get_engine_from_sv(aTHX_ engine_sv);
-        }
-
-        wasm_store_t* store = wasm_store_new(engine);
-
-        store_holder_t* store_holder_p;
-
-        Newx(store_holder_p, 1, store_holder_t);
-
-        store_holder_p->store = store;
-
-        if (engine_sv == NULL) {
-            store_holder_p->engine_is_mine = true;
-            store_holder_p->engine.mine = engine;
-        }
-        else {
-            store_holder_p->engine_is_mine = false;
-            store_holder_p->engine.sv = SvRV(engine_sv);
-
-            SvREFCNT_inc(store_holder_p->engine.sv);
-        }
-
-        RETVAL = _ptr_to_svrv(aTHX_ store_holder_p, gv_stashpv(class, FALSE));
+        RETVAL = create_store_sv(aTHX_ class_sv, engine_sv);
 
     OUTPUT:
         RETVAL
@@ -568,18 +512,7 @@ new (SV* class_sv, SV* engine_sv=NULL)
 void
 DESTROY (SV* self_sv)
     CODE:
-        store_holder_t* store_holder_p = _get_store_holder_p_from_sv(aTHX_ self_sv);
-
-        wasm_store_delete(store_holder_p->store);
-
-        if (store_holder_p->engine_is_mine) {
-            wasm_engine_delete(store_holder_p->engine.mine);
-        }
-        else {
-            SvREFCNT_dec(store_holder_p->engine.sv);
-        }
-
-        Safefree(store_holder_p);
+        destroy_store_sv(aTHX_ self_sv);
 
 # ----------------------------------------------------------------------
 
@@ -588,36 +521,12 @@ MODULE = Wasm::Wasmer     PACKAGE = Wasm::Wasmer::Module
 PROTOTYPES: DISABLE
 
 SV*
-new (SV* class_sv, SV* store_sv, SV* wasm_sv)
+new (SV* class_sv, SV* wasm_sv, SV* store_sv=NULL)
     CODE:
+        croak_if_non_null_not_derived(aTHX_ store_sv, P5_WASM_WASMER_STORE_CLASS);
         if (!SvPOK(class_sv)) croak("Give a class name!");
 
-        const char* class = SvPVbyte_nolen(class_sv);
-
-        STRLEN wasm_len;
-        char* wasm_bytes = SvPVbyte(wasm_sv, wasm_len);
-
-        wasm_byte_vec_t binary;
-        wasm_byte_vec_new(&binary, wasm_len, wasm_bytes);
-
-        store_holder_t* store_holder_p = _get_store_holder_p_from_sv(aTHX_ store_sv);
-
-        wasm_module_t* module = wasm_module_new(store_holder_p->store, &binary);
-
-        wasm_byte_vec_delete(&binary);
-
-        module_holder_t* module_holder_p;
-
-        Newx(module_holder_p, 1, module_holder_t);
-
-        module_holder_p->module = module;
-
-        module_holder_p->store_sv = SvRV(store_sv);
-        SvREFCNT_inc(module_holder_p->store_sv);
-
-        wasm_module_exports(module, &module_holder_p->export_types);
-
-        RETVAL = _ptr_to_svrv(aTHX_ module_holder_p, gv_stashpv(class, FALSE));
+        RETVAL = create_module_sv(aTHX_ class_sv, wasm_sv, store_sv);
 
     OUTPUT:
         RETVAL
@@ -761,11 +670,7 @@ create_wasi_instance (SV* self_sv, SV* imports_sv=NULL)
 
         wasm_trap_t* traps = NULL;
 
-    wasi_config_t* config = wasi_config_new("my-program");
-
-  const char* js_string = "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));";
-  wasi_config_arg(config, "--eval");
-  wasi_config_arg(config, js_string);
+    wasi_config_t* config = wasi_config_new("");
 
     wasi_config_inherit_stderr(config);
     wasi_config_inherit_stdout(config);

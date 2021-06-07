@@ -1,0 +1,16 @@
+#ifndef P5_WASM_WASMER_ENGINE
+#define P5_WASM_WASMER_ENGINE 1
+
+#include "p5_wasm_wasmer.h"
+
+#define P5_WASM_WASMER_ENGINE_CLASS "Wasm::Wasmer::Engine"
+
+SV* create_engine_sv (pTHX_ SV* class_sv) {
+    const char* class = class_sv ? SvPVbyte_nolen(class_sv) : P5_WASM_WASMER_ENGINE_CLASS;
+
+    wasm_engine_t* engine = wasm_engine_new();
+
+    return ptr_to_svrv(aTHX_ engine, gv_stashpv(class, FALSE));
+}
+
+#endif

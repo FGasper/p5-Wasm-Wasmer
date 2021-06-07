@@ -18,7 +18,7 @@ my $wasm = File::Slurper::read_binary("concat.wasm");
 my $store = Wasm::Wasmer::Store->new();
 print "created store\n";
 
-my $module = Wasm::Wasmer::Module->new($store, $wasm);
+my $module = Wasm::Wasmer::Module->new($wasm, $store);
 print "created module\n";
 
 printf "wef: %s\n", Wasm::Wasmer::WASM_EXTERN_FUNC;
