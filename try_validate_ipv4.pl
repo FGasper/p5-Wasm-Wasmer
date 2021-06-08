@@ -16,10 +16,7 @@ $| = 1;
 
 my $wasm = File::Slurper::read_binary("validate_ipv4.wasm");
 
-my $store = Wasm::Wasmer::Store->new();
-print "created store\n";
-
-my $module = Wasm::Wasmer::Module->new($wasm, $store);
+my $module = Wasm::Wasmer::Module->new($wasm);
 print "created module\n";
 
 my ($ascript_rdr, $ascript_wtr);

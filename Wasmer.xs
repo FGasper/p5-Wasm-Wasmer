@@ -34,26 +34,6 @@
 
 #define _ptr_to_svrv ptr_to_svrv
 
-static inline module_holder_t* _get_module_holder_p_from_sv(pTHX_ SV *self_sv) {
-    SV *referent = SvRV(self_sv);
-    return INT2PTR(module_holder_t*, SvUV(referent));
-}
-
-static inline instance_holder_t* _get_instance_holder_p_from_sv(pTHX_ SV *self_sv) {
-    SV *referent = SvRV(self_sv);
-    return INT2PTR(instance_holder_t*, SvUV(referent));
-}
-
-static inline memory_holder_t* _get_memory_holder_p_from_sv(pTHX_ SV *self_sv) {
-    SV *referent = SvRV(self_sv);
-    return INT2PTR(memory_holder_t*, SvUV(referent));
-}
-
-static inline function_holder_t* _get_function_holder_p_from_sv(pTHX_ SV *self_sv) {
-    SV *referent = SvRV(self_sv);
-    return INT2PTR(function_holder_t*, SvUV(referent));
-}
-
 /* ---------------------------------------------------------------------- */
 
 void print_wasmer_error()
@@ -64,10 +44,6 @@ void print_wasmer_error()
     wasmer_last_error_message(error_str, error_len);
     printf("Error str: `%s`\n", error_str);
 }
-
-/* ---------------------------------------------------------------------- */
-
-// TODO: function creation
 
 /* ---------------------------------------------------------------------- */
 
@@ -113,11 +89,11 @@ unsigned _call_wasm( pTHX_ SV** SP, wasm_func_t* function, wasm_exporttype_t* ex
 
         switch (param_kind[i]) {
             case WASM_I32:
-                wasm_param[i].of.i32 = SvIV( given_arg[i] );
+                wasm_param[i].of.i32 = grok_i32( given_arg[i] );
                 break;
 
             case WASM_I64:
-                wasm_param[i].of.i64 = SvIV( given_arg[i] );
+                wasm_param[i].of.i64 = grok_i64( given_arg[i] );
                 break;
 
             case WASM_F32:
@@ -171,11 +147,11 @@ unsigned _call_wasm( pTHX_ SV** SP, wasm_func_t* function, wasm_exporttype_t* ex
                     break;
 
                 case WASM_F32:
-                    mPUSHs( newSViv( (float) wasm_result[i].of.f32 ) );
+                    mPUSHs( newSVnv( (float) wasm_result[i].of.f32 ) );
                     break;
 
                 case WASM_F64:
-                    mPUSHs( newSViv( (float) wasm_result[i].of.f64 ) );
+                    mPUSHs( newSVnv( (float) wasm_result[i].of.f64 ) );
                     break;
 
                 default:
@@ -195,8 +171,27 @@ MODULE = Wasm::Wasmer     PACKAGE = Wasm::Wasmer
 BOOT:
     newCONSTSUB(gv_stashpv("Wasm::Wasmer", 0), "WASM_EXTERN_FUNC", newSVuv(WASM_EXTERN_FUNC));
 
+# void
+# check_leaks (SV* wasm_sv)
+#     CODE:
+#         wasm_engine_t* engine = wasm_engine_new();
+#         wasm_store_t* store = wasm_store_new(engine);
+#
+#         STRLEN wasmlen;
+#         const char* wasm = SvPVbyte(wasm_sv, wasmlen);
+#
+#         wasm_byte_vec_t binary;
+#         wasm_byte_vec_new(&binary, wasmlen, wasm);
+#
+#         wasm_module_t* module = wasm_module_new(store, &binary);
+#         wasm_module_delete(module);
+#
+#         wasm_byte_vec_delete(&binary);
+#         wasm_store_delete(store);
+#         wasm_engine_delete(engine);
+
 SV*
-wat2wasm( SV* wat_sv )
+wat2wasm ( SV* wat_sv )
     CODE:
         STRLEN watlen;
         const char* wat = SvPVbyte(wat_sv, watlen);
@@ -301,7 +296,7 @@ create_wasi_instance (SV* self_sv, SV* imports_sv=NULL)
         }
     fprintf(stderr, "in create_wasi_instance\n");
 
-        module_holder_t* module_holder_p = _get_module_holder_p_from_sv(aTHX_ self_sv);
+        module_holder_t* module_holder_p = svrv_to_ptr(aTHX_ self_sv);
     SV* store_sv = module_holder_p->store_sv;
     store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ store_sv);
 
@@ -420,9 +415,9 @@ export_functions (SV* self_sv)
     PPCODE:
         if (GIMME_V != G_ARRAY) croak("List context only!");
 
-        instance_holder_t* instance_holder_p = _get_instance_holder_p_from_sv(aTHX_ self_sv);
+        instance_holder_t* instance_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
-        module_holder_t* module_holder_p = _get_module_holder_p_from_sv(aTHX_ instance_holder_p->module_sv);
+        module_holder_t* module_holder_p = svrv_to_ptr(aTHX_ instance_holder_p->module_sv);
 
         wasm_exporttype_vec_t* export_types = &module_holder_p->export_types;
 
@@ -447,7 +442,7 @@ export_functions (SV* self_sv)
             function_holder->pid = pid;
             function_holder->export_type = export_types->data[i];
 
-            function_holder->instance_sv = SvRV(self_sv);
+            function_holder->instance_sv = self_sv;
             SvREFCNT_inc(function_holder->instance_sv);
 
             possible_function_sv[return_count] = _ptr_to_svrv( aTHX_
@@ -479,9 +474,9 @@ call (SV* self_sv, SV* funcname_sv, ...)
 
         unsigned given_args_count = items - 2;
 
-        instance_holder_t* instance_holder_p = _get_instance_holder_p_from_sv(aTHX_ self_sv);
+        instance_holder_t* instance_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
-        module_holder_t* module_holder_p = _get_module_holder_p_from_sv(aTHX_ instance_holder_p->module_sv);
+        module_holder_t* module_holder_p = svrv_to_ptr(aTHX_ instance_holder_p->module_sv);
 
         wasm_exporttype_vec_t* export_types = &module_holder_p->export_types;
 
