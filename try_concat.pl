@@ -44,8 +44,10 @@ my %exports = map {
     ( $fn->name() => sub { $fn->call(@_) } ),
 } $instance->export_functions();
 
+my $memory = ($instance->export_memories())[0];
+
 my $ascript = Wasm::AssemblyScript->new(
-    ($instance->export_memories())[0]->data(),
+    $memory->data(),
     \%exports,
 );
 
@@ -58,8 +60,16 @@ print "created strings\n";
 
 my $got = $instance->call('concat', $hello->ptr(), $world->ptr());
 
+my $addr = $memory->data();
+my $len = $memory->data_size();
+print "memory at $addr ($len bytes)\n";
+print "output pointer: $got\n";
+
+use Data::Dumper;
+$Data::Dumper::Useqq = 1;
+
 my $got_str = $ascript->get_text($got);
 
-print Dumper $got_str;
+print $got_str;
 
 1;

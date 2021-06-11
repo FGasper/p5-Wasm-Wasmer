@@ -304,6 +304,10 @@ create_wasi_instance (SV* self_sv, SV* imports_sv=NULL)
 
     wasi_config_t* config = wasi_config_new("");
 
+    // XXX XXX FOR TESTING ONLY!!! FIXME
+    wasi_config_mapdir(config, "/", "/");
+    wasi_config_preopen_dir(config, "/");
+
     wasi_config_inherit_stderr(config);
     wasi_config_inherit_stdout(config);
     wasi_env_t* wasi_env = wasi_env_new(config);
@@ -524,6 +528,14 @@ UV
 data (SV* self_sv)
     CODE:
         RETVAL = memory_sv_data_uv(aTHX_ self_sv);
+
+    OUTPUT:
+        RETVAL
+
+IV
+data_size (SV* self_sv)
+    CODE:
+        RETVAL = memory_sv_data_size_iv(aTHX_ self_sv);
 
     OUTPUT:
         RETVAL
