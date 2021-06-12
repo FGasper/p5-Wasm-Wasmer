@@ -7,7 +7,7 @@ use warnings;
 
 =head1 NAME
 
-Wasm::Wasmer::WASI
+Wasm::Wasmer::WASI - Customized WASI configuration
 
 =head1 SYNOPSIS
 
