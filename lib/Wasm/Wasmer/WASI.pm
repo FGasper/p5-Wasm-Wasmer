@@ -33,7 +33,7 @@ Wasm::Wasmer::WASI
         },
     );
 
-    my $instance = $module->create_wasi_instance($wasi, $imports_hr);
+    my $instance = $module->create_wasi_instance($wasi);
 
 =head1 DESCRIPTION
 

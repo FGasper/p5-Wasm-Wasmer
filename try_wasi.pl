@@ -20,7 +20,7 @@ my $wasm = File::Slurper::read_binary("wasi.wasm");
 
 my $module = Wasm::Wasmer::Module->new($wasm);
 
-my $instance = $module->create_wasi_instance(Wasm::Wasmer::WASI->new());
+my $instance = $module->create_wasi_instance();
 
 my %exports = map {
     my $fn = $_;

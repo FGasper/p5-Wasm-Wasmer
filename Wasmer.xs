@@ -27,6 +27,7 @@
 #include "wasmer_instance.xsc"
 #include "wasmer_function.xsc"
 #include "wasmer_memory.xsc"
+#include "wasmer_wasi.xsc"
 
 #define WASI_INSTANCE_CLASS "Wasm::Wasmer::WasiInstance"
 #define WASI_CLASS "Wasm::Wasmer::WASI"
@@ -290,13 +291,23 @@ create_instance (SV* self_sv, SV* imports_sv=NULL)
         RETVAL
 
 SV*
-create_wasi_instance (SV* self_sv, SV* wasi_sv)
+create_wasi_instance (SV* self_sv, SV* wasi_sv=NULL)
     CODE:
-        if (!sv_derived_from(wasi_sv, WASI_CLASS)) {
+        if (NULL == wasi_sv) {
+            wasi_config_t* config = wasi_config_new("");
+            wasi_env_t* wasienv = wasi_env_new(config);
+            wasi_holder_t* holder = wasi_env_to_holder(aTHX_ wasienv);
+
+            wasi_sv = ptr_to_svrv(aTHX_ holder, gv_stashpv(WASI_CLASS, FALSE));
+
+            sv_2mortal(wasi_sv);
+        }
+        else if (!sv_derived_from(wasi_sv, WASI_CLASS)) {
             croak("Give a %s instance, not %" SVf "!", WASI_CLASS, wasi_sv);
         }
 
-        wasi_env_t* wasi_env_p = svrv_to_ptr(aTHX_ wasi_sv);
+        wasi_holder_t* wasi_holder_p = svrv_to_ptr(aTHX_ wasi_sv);
+        wasi_env_t* wasi_env_p = wasi_holder_p->env;
 
         module_holder_t* module_holder_p = svrv_to_ptr(aTHX_ self_sv);
         SV* store_sv = module_holder_p->store_sv;
@@ -690,7 +701,9 @@ _new (SV* classname_sv, SV* wasiname_sv, SV* opts_hr=NULL)
 
         wasi_env_t* wasienv = wasi_env_new(config);
 
-        RETVAL = ptr_to_svrv(aTHX_ wasienv, gv_stashpv(classname, FALSE));
+        wasi_holder_t* holder = wasi_env_to_holder(aTHX_ wasienv);
+
+        RETVAL = ptr_to_svrv(aTHX_ holder, gv_stashpv(classname, FALSE));
 
     OUTPUT:
         RETVAL
@@ -698,5 +711,10 @@ _new (SV* classname_sv, SV* wasiname_sv, SV* opts_hr=NULL)
 void
 DESTROY (SV* self_sv)
     CODE:
-        wasi_env_t* wasienv = svrv_to_ptr(aTHX_ self_sv);
-        wasi_env_delete(wasienv);
+        wasi_holder_t* holder = svrv_to_ptr(aTHX_ self_sv);
+
+        warn_destruct_if_needed(self_sv, holder->pid);
+
+        wasi_env_delete(holder->env);
+
+        Safefree(holder);

@@ -1,0 +1,21 @@
+#ifndef P5_WASM_WASMER_WASI
+#define P5_WASM_WASMER_WASI 1
+
+typedef struct {
+    wasi_env_t* env;
+
+    pid_t pid;
+} wasi_holder_t;
+
+wasi_holder_t* wasi_env_to_holder (pTHX_ wasi_env_t* wasienv) {
+    wasi_holder_t* wasi_holder_p;
+
+    Newx(wasi_holder_p, 1, wasi_holder_t);
+
+    wasi_holder_p->env = wasienv;
+    wasi_holder_p->pid = getpid();
+
+    return wasi_holder_p;
+}
+
+#endif
