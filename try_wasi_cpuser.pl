@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use Wasm::Wasmer;
+use Wasm::Wasmer::WASI;
 
 use lib '../p5-Wasm-AssemblyScript/lib';
 use Wasm::AssemblyScript;
@@ -17,9 +18,15 @@ $| = 1;
 my $wasm = File::Slurper::read_binary("try_cpuser.wasm");
 
 my $module = Wasm::Wasmer::Module->new($wasm);
-print "created module\n";
 
-my $instance = $module->create_wasi_instance();
+my $wasi = Wasm::Wasmer::WASI->new(
+    preopen_dirs => ['/'],
+    map_dirs => { '/' => '/' },
+);
+
+my $instance = $module->create_wasi_instance($wasi);
+
+undef $wasi;
 
 my %exports = map {
     my $fn = $_;
@@ -39,17 +46,7 @@ $instance->start();
 my $path_in = $ascript->new_text('/var/cpanel/users/superman');
 
 my $got_ptr = $instance->call('loadFile', $path_in->ptr());
-print "got from loadFile: $got_ptr\n";
 
-my $addr = $memory->data();
-my $len = $memory->data_size();
-print "memory at $addr ($len bytes)\n";
-
-my $memory_contents = unpack "P$len", pack("Q", $addr);
-print "slurped memory contents\n";
-use Data::Dumper;
-$Data::Dumper::Useqq = 1;
-
-my $text_out = $ascript->get_text($got_ptr);
+my $text_out = $ascript->get_arraybuffer($got_ptr);
 
 print $text_out;

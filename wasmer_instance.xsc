@@ -15,6 +15,8 @@ typedef struct {
 
     pid_t pid;
 
+    SV* wasi_sv;
+
     wasm_extern_vec_t exports;
 } instance_holder_t;
 
@@ -84,6 +86,27 @@ fprintf(stderr, "fetch 3\n");
     }
 
     return NULL;
+}
+
+SV* instance_to_sv (pTHX_ wasm_instance_t* instance, SV* module_sv, SV* wasi_sv, const char* class) {
+    instance_holder_t* instance_holder_p;
+
+    Newx(instance_holder_p, 1, instance_holder_t);
+
+    instance_holder_p->instance = instance;
+    instance_holder_p->pid      = getpid();
+    instance_holder_p->module_sv = module_sv;
+    instance_holder_p->wasi_sv   = wasi_sv;
+
+    if (wasi_sv) SvREFCNT_inc(wasi_sv);
+
+    wasm_instance_exports(instance, &instance_holder_p->exports);
+
+    SvREFCNT_inc(module_sv);
+
+    if (NULL == class) class = P5_WASM_WASMER_INSTANCE_CLASS;
+
+    return ptr_to_svrv(aTHX_ instance_holder_p, gv_stashpv(class, FALSE));
 }
 
 SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv) {
@@ -183,19 +206,7 @@ fprintf(stderr, "made func\n");
     // TODO: cleaner
     assert(instance);
 
-    instance_holder_t* instance_holder_p;
-
-    Newx(instance_holder_p, 1, instance_holder_t);
-
-    instance_holder_p->instance = instance;
-    instance_holder_p->pid = getpid();
-    instance_holder_p->module_sv = module_sv;
-
-    wasm_instance_exports(instance, &instance_holder_p->exports);
-
-    SvREFCNT_inc(module_sv);
-
-    return ptr_to_svrv(aTHX_ instance_holder_p, gv_stashpv(class, FALSE));
+    return instance_to_sv(instance, module_sv, NULL, class);
 }
 
 void destroy_instance_sv (pTHX_ SV* self_sv) {
@@ -207,6 +218,10 @@ void destroy_instance_sv (pTHX_ SV* self_sv) {
     wasm_extern_vec_delete(&instance_holder_p->exports);
 
     SvREFCNT_dec(instance_holder_p->module_sv);
+
+    if (instance_holder_p->wasi_sv) {
+        SvREFCNT_dec(instance_holder_p->wasi_sv);
+    }
 
     Safefree(instance_holder_p);
 }

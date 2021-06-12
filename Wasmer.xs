@@ -29,6 +29,7 @@
 #include "wasmer_memory.xsc"
 
 #define WASI_INSTANCE_CLASS "Wasm::Wasmer::WasiInstance"
+#define WASI_CLASS "Wasm::Wasmer::WASI"
 #define MEMORY_CLASS "Wasm::Wasmer::Memory"
 #define FUNCTION_CLASS "Wasm::Wasmer::Function"
 
@@ -289,42 +290,33 @@ create_instance (SV* self_sv, SV* imports_sv=NULL)
         RETVAL
 
 SV*
-create_wasi_instance (SV* self_sv, SV* imports_sv=NULL)
+create_wasi_instance (SV* self_sv, SV* wasi_sv)
     CODE:
-        if (imports_sv != NULL && SvOK(imports_sv)) {
-            croak("Imports are unsupported for now.");
+        if (!sv_derived_from(wasi_sv, WASI_CLASS)) {
+            croak("Give a %s instance, not %" SVf "!", WASI_CLASS, wasi_sv);
         }
-    fprintf(stderr, "in create_wasi_instance\n");
+
+        wasi_env_t* wasi_env_p = svrv_to_ptr(aTHX_ wasi_sv);
 
         module_holder_t* module_holder_p = svrv_to_ptr(aTHX_ self_sv);
-    SV* store_sv = module_holder_p->store_sv;
-    store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ store_sv);
+        SV* store_sv = module_holder_p->store_sv;
+        store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ store_sv);
 
         wasm_trap_t* traps = NULL;
 
-    wasi_config_t* config = wasi_config_new("");
+        wasm_importtype_vec_t import_types;
+        wasm_module_imports(module_holder_p->module, &import_types);
 
-    // XXX XXX FOR TESTING ONLY!!! FIXME
-    wasi_config_mapdir(config, "/", "/");
-    wasi_config_preopen_dir(config, "/");
+        wasm_extern_vec_t imports;
+        wasm_extern_vec_new_uninitialized(&imports, import_types.size);
+        wasm_importtype_vec_delete(&import_types);
 
-    wasi_config_inherit_stderr(config);
-    wasi_config_inherit_stdout(config);
-    wasi_env_t* wasi_env = wasi_env_new(config);
+        bool get_imports_result = wasi_get_imports(store_holder_p->store, module_holder_p->module, wasi_env_p, &imports);
 
-    wasm_importtype_vec_t import_types;
-    wasm_module_imports(module_holder_p->module, &import_types);
-
-    wasm_extern_vec_t imports;
-    wasm_extern_vec_new_uninitialized(&imports, import_types.size);
-    wasm_importtype_vec_delete(&import_types);
-
-    fprintf(stderr, "before get imports\n");
-    bool get_imports_result = wasi_get_imports(store_holder_p->store, module_holder_p->module, wasi_env, &imports);
-  if (!get_imports_result) {
-    print_wasmer_error();
-    croak("> Error getting WASI imports!\n");
-  }
+        if (!get_imports_result) {
+            print_wasmer_error();
+            croak("> Error getting WASI imports!\n");
+        }
 
         wasm_instance_t* instance = wasm_instance_new(
             NULL, /* Ignored, per the documentation */
@@ -336,19 +328,7 @@ create_wasi_instance (SV* self_sv, SV* imports_sv=NULL)
         // TODO: cleaner
         assert(instance);
 
-        instance_holder_t* instance_holder_p;
-
-        Newx(instance_holder_p, 1, instance_holder_t);
-
-        instance_holder_p->instance = instance;
-        instance_holder_p->pid      = getpid();
-        instance_holder_p->module_sv = self_sv;
-
-        wasm_instance_exports(instance, &instance_holder_p->exports);
-
-        SvREFCNT_inc(self_sv);
-
-        RETVAL = _ptr_to_svrv(aTHX_ instance_holder_p, gv_stashpv(WASI_INSTANCE_CLASS, FALSE));
+        RETVAL = instance_to_sv(aTHX_ instance, self_sv, wasi_sv, WASI_INSTANCE_CLASS);
 
     OUTPUT:
         RETVAL
@@ -593,3 +573,130 @@ call (SV* self_sv, ...)
 
 # ----------------------------------------------------------------------
 
+MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::WASI
+
+SV*
+_new (SV* classname_sv, SV* wasiname_sv, SV* opts_hr=NULL)
+    CODE:
+        const char* classname = SvPVbyte_nolen(classname_sv);
+        const char* wasiname = SvPVbyte_nolen(wasiname_sv);
+
+        wasi_config_t* config = wasi_config_new(wasiname);
+
+        if (opts_hr && SvOK(opts_hr)) {
+            HV* opts_hv = (HV*) SvRV(opts_hr);
+
+            SV** args_arr = hv_fetchs(opts_hv, "args", 0);
+
+            if (args_arr && *args_arr && SvOK(*args_arr)) {
+                AV* args = (AV*) SvRV(*args_arr);
+
+                SSize_t av_len = 1 + av_top_index(args);
+
+                for (UV i=0; i<av_len; i++) {
+                    SV *arg = *(av_fetch(args, i, 0));
+
+                    wasi_config_arg(config, SvPVbyte_nolen(arg));
+                }
+            }
+
+            SV** svr = hv_fetchs(opts_hv, "stdin", 0);
+            if (svr && *svr && SvOK(*svr)) {
+                const char* value = SvPVbyte_nolen(*svr);
+
+                if (strEQ(value, "inherit")) {
+                    wasi_config_inherit_stdin(config);
+                }
+                else {
+                    assert(0);
+                }
+            }
+
+            svr = hv_fetchs(opts_hv, "stdout", 0);
+            if (svr && *svr && SvOK(*svr)) {
+                const char* value = SvPVbyte_nolen(*svr);
+
+                if (strEQ(value, "inherit")) {
+                    wasi_config_inherit_stdout(config);
+                }
+                else if (strEQ(value, "capture")) {
+                    wasi_config_capture_stdout(config);
+                }
+                else {
+                    assert(0);
+                }
+            }
+
+            svr = hv_fetchs(opts_hv, "stderr", 0);
+            if (svr && *svr && SvOK(*svr)) {
+                const char* value = SvPVbyte_nolen(*svr);
+
+                if (strEQ(value, "inherit")) {
+                    wasi_config_inherit_stderr(config);
+                }
+                else if (strEQ(value, "capture")) {
+                    wasi_config_capture_stderr(config);
+                }
+                else {
+                    assert(0);
+                }
+            }
+
+            svr = hv_fetchs(opts_hv, "env", 0);
+            if (svr && *svr && SvOK(*svr)) {
+                AV* env = (AV*) SvRV(*svr);
+
+                SSize_t av_len = 1 + av_top_index(env);
+
+                for (UV i=0; i<av_len; i += 2) {
+                    const char *key = SvPVbyte_nolen( *(av_fetch(env, i, 0) ) );
+                    const char *value = SvPVbyte_nolen( *(av_fetch(env, 1 + i, 0) ) );
+
+                    wasi_config_env(config, key, value);
+                }
+            }
+
+            svr = hv_fetchs(opts_hv, "preopen_dirs", 0);
+            if (svr && *svr && SvOK(*svr)) {
+                AV* dirs = (AV*) SvRV(*svr);
+
+                SSize_t av_len = 1 + av_top_index(dirs);
+
+                for (UV i=0; i<av_len; i++) {
+                    SV *dir = *(av_fetch(dirs, i, 0));
+                    wasi_config_preopen_dir(config, SvPVbyte_nolen(dir));
+                }
+            }
+
+            svr = hv_fetchs(opts_hv, "map_dirs", 0);
+            if (svr && *svr && SvOK(*svr)) {
+                HV* map = (HV*) SvRV(*svr);
+
+                hv_iterinit(map);
+                HE* h_entry;
+
+                while ( (h_entry = hv_iternext(map)) ) {
+                    SV* key = hv_iterkeysv(h_entry);
+                    SV* value = hv_iterval(map, h_entry);
+
+                    wasi_config_mapdir(
+                        config,
+                        SvPVbyte_nolen(key),
+                        SvPVbyte_nolen(value)
+                    );
+                }
+            }
+        }
+
+        wasi_env_t* wasienv = wasi_env_new(config);
+
+        RETVAL = ptr_to_svrv(aTHX_ wasienv, gv_stashpv(classname, FALSE));
+
+    OUTPUT:
+        RETVAL
+
+void
+DESTROY (SV* self_sv)
+    CODE:
+        wasi_env_t* wasienv = svrv_to_ptr(aTHX_ self_sv);
+        wasi_env_delete(wasienv);

@@ -12,17 +12,15 @@ use File::Slurper;
 use Data::Dumper;
 use JSON;
 
+use Wasm::Wasmer::WASI ();
+
 $| = 1;
 
 my $wasm = File::Slurper::read_binary("wasi.wasm");
 
-my $store = Wasm::Wasmer::Store->new();
-print "created store\n";
+my $module = Wasm::Wasmer::Module->new($wasm);
 
-my $module = Wasm::Wasmer::Module->new($wasm, $store);
-print "created module\n";
-
-my $instance = $module->create_wasi_instance();
+my $instance = $module->create_wasi_instance(Wasm::Wasmer::WASI->new());
 
 my %exports = map {
     my $fn = $_;
