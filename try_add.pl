@@ -15,7 +15,7 @@ my $wasm = Wasm::Wasmer::wat2wasm($wat);
 use Data::Dumper;
 $Data::Dumper::Useqq = 1;
 
-my $engine = Wasm::Wasmer::Engine->new();
+my $engine = Wasm::Wasmer::Engine->new( compiler => 'cranelift' );
 my $store = Wasm::Wasmer::Store->new($engine);
 
 my $module = Wasm::Wasmer::Module->new($wasm, $store);

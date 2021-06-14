@@ -13,6 +13,12 @@ Wasm::Wasmer::Module
 
     my $module = Wasm::Wasmer::Module->new( $wasm_bin );
 
+… or, to use a pre-built L<Wasm::Wasmer::Store> instance:
+
+    my $module = Wasm::Wasmer::Module->new( $wasm_bin, $store );
+
+… then:
+
     my $instance = $module->create_instance();
 
 … or, for L<WASI|http://wasi.dev>:
@@ -24,13 +30,16 @@ Wasm::Wasmer::Module
 =head1 DESCRIPTION
 
 This class represents a parsed WebAssembly module. It’s the
-“starting point” for all interactions with L<Wasm::Wasmer>.
+essential hub for all interactions with L<Wasm::Wasmer>.
 
 =head1 METHODS
 
 =head2 $obj = I<CLASS>->new( $WASM_BIN [, $STORE ] )
 
-Parses a WebAssembly module in binary (C<.wasm>) format.
+Parses a WebAssembly module in binary (C<.wasm>) format
+and returns a I<CLASS> instance representing that.
+
+(To use text/C<.wat> format instead, see L<Wasm::Wasmer>’s C<wat2wasm()>.)
 
 Optionally associates the parse of that module with a
 L<Wasm::Wasmer::Store> instance.
@@ -68,7 +77,7 @@ Each @IMPORTS member is an arrayref. Options are:
 
 =back
 
-(The other import types are currently unimplemented.)
+(WebAssembly’s other import types are currently unimplemented.)
 
 =head2 $instance = I<OBJ>->create_wasi_instance( [$WASI] )
 

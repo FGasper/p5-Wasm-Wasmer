@@ -11,10 +11,57 @@ typedef struct {
     pid_t pid;
 } engine_holder_t;
 
-SV* create_engine_sv (pTHX_ SV* class_sv) {
+SV* create_engine_sv (pTHX_ SV* class_sv, SV** args, unsigned argscount) {
     const char* class = class_sv ? SvPVbyte_nolen(class_sv) : P5_WASM_WASMER_ENGINE_CLASS;
 
-    wasm_engine_t* engine = wasm_engine_new();
+    if (argscount % 2) {
+        croak("%s::new: Uneven args list!", class);
+    }
+
+    wasm_engine_t* engine;
+
+    if (argscount) {
+        wasm_config_t* config = wasm_config_new();
+
+        unsigned a=0;
+        for (; a<argscount; a += 2) {
+            const char* argname = SvPVbyte_nolen(args[a]);
+
+            if (strEQ("compiler", argname)) {
+                wasmer_compiler_t compiler;
+
+                const char* argval = SvPVbyte_nolen(args[1+a]);
+
+                if (strEQ("cranelift", argval)) {
+                    compiler = CRANELIFT;
+                }
+                else if (strEQ("llvm", argval)) {
+                    compiler = LLVM;
+                }
+                else if (strEQ("singlepass", argval)) {
+                    compiler = SINGLEPASS;
+                }
+                else {
+                    wasm_config_delete(config);
+                    croak("Bad %s: `%s`", argname, argval);
+                }
+
+                if (!wasmer_is_compiler_available(compiler)) {
+                    wasm_config_delete(config);
+                    croak("Unsupported %s: %s", argname, argval);
+                }
+            }
+            else {
+                wasm_config_delete(config);
+                croak("Bad argument: %s", argname);
+            }
+        }
+
+        engine = wasm_engine_new_with_config(config);
+    }
+    else {
+        engine = wasm_engine_new();
+    }
 
     engine_holder_t* engine_holder_p;
 

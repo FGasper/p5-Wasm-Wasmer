@@ -19,7 +19,7 @@ SV* create_store_sv (pTHX_ SV* class_sv, SV* engine_sv) {
     const char* class = class_sv ? SvPVbyte_nolen(class_sv) : P5_WASM_WASMER_STORE_CLASS;
 
     if (engine_sv == NULL) {
-        engine_sv = create_engine_sv(aTHX_ NULL);
+        engine_sv = create_engine_sv(aTHX_ NULL, NULL, 0);
     }
     else {
         SvREFCNT_inc(engine_sv);

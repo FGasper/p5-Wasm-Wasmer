@@ -223,11 +223,11 @@ MODULE = Wasm::Wasmer     PACKAGE = Wasm::Wasmer::Engine
 PROTOTYPES: DISABLE
 
 SV*
-new (SV* class_sv)
+new (SV* class_sv, ...)
     CODE:
         if (!SvPOK(class_sv)) croak("Give a class name!");
 
-        RETVAL = create_engine_sv(aTHX_ class_sv);
+        RETVAL = create_engine_sv(aTHX_ class_sv, &ST(1), items - 1);
 
     OUTPUT:
         RETVAL
