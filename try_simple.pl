@@ -12,6 +12,8 @@ my $wasm = Wasm::Wasmer::wat2wasm( <<END );
       (export "sum" (func 0)))
 END
 
-my $instance = Wasm::Wasmer::Module->new($wasm)->create_instance();
+my $serialized = Wasm::Wasmer::Module->new($wasm)->serialize();
 
-print $instance->call('sum', 2, 5) . $/;
+my $module = Wasm::Wasmer::Module::deserialize($serialized);
+
+print $module->create_instance()->call('sum', 2, 5) . $/;

@@ -316,8 +316,15 @@ serialize (SV* self_sv)
         RETVAL
 
 SV*
-deserialize (SV* store_sv, SV* bytes_sv)
+deserialize (SV* bytes_sv, SV* store_sv=NULL)
     CODE:
+        if (store_sv) {
+            SvREFCNT_inc(store_sv);
+        }
+        else {
+            store_sv = create_store_sv(aTHX_ NULL, NULL);
+        }
+
         store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ store_sv);
 
         STRLEN byteslen;
