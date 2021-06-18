@@ -29,6 +29,21 @@ void croak_if_non_null_not_derived (pTHX_ SV *obj, const char* classname) {
     }
 }
 
+void _croak_if_trap (pTHX_ wasm_trap_t* trap) {
+    if (trap != NULL) {
+        wasm_name_t message;
+        wasm_trap_message(trap, &message);
+
+        SV* err_sv = newSVpv(message.data, 0);
+
+        wasm_name_delete(&message);
+        wasm_trap_delete(trap);
+
+        // TODO: Exception object so it can contain the trap
+        croak_sv(err_sv);
+    }
+}
+
 static inline AV* get_av_from_sv_or_croak (pTHX_ SV* sv, const char* description) {
     if (!SvROK(sv) || SVt_PVAV != SvTYPE(SvRV(sv))) {
         croak("%s must be an ARRAY reference, not `%" SVf "`", description, sv);

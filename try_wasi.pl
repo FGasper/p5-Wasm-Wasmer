@@ -34,7 +34,7 @@ my $ascript = Wasm::AssemblyScript->new(
 );
 
 # This has to precede other WASI function calls:
-$instance->start();
+# $instance->start();
 
 $instance->call('greet');
 

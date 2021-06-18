@@ -81,7 +81,7 @@ Each @IMPORTS member is an arrayref. Options are:
 
 =head2 $instance = I<OBJ>->create_wasi_instance( [$WASI] )
 
-Creates a L<Wasm::Wasmer::WasiInstance> instance from I<OBJ>.
+Creates a L<Wasm::Wasmer::Instance> instance from I<OBJ>.
 That object’s WebAssembly imports will be the L<WASI|https://wasi.dev>
 interface.
 

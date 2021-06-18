@@ -29,7 +29,6 @@
 #include "wasmer_memory.xsc"
 #include "wasmer_wasi.xsc"
 
-#define WASI_INSTANCE_CLASS "Wasm::Wasmer::WasiInstance"
 #define WASI_CLASS "Wasm::Wasmer::WASI"
 #define MEMORY_CLASS "Wasm::Wasmer::Memory"
 #define FUNCTION_CLASS "Wasm::Wasmer::Function"
@@ -122,18 +121,7 @@ unsigned _call_wasm( pTHX_ SV** SP, wasm_func_t* function, wasm_exporttype_t* ex
 
     own wasm_trap_t* trap = wasm_func_call(function, &params_vec, &results_vec);
 
-    if (trap != NULL) {
-        wasm_name_t message;
-        wasm_trap_message(trap, &message);
-
-        SV* err_sv = newSVpv(message.data, 0);
-
-        wasm_name_delete(&message);
-        wasm_trap_delete(trap);
-
-        // TODO: Exception object so it can contain the trap
-        croak_sv(err_sv);
-    }
+    _croak_if_trap(aTHX_ trap);
 
     if (results_count) {
         EXTEND(SP, results_count);
@@ -164,6 +152,25 @@ unsigned _call_wasm( pTHX_ SV** SP, wasm_func_t* function, wasm_exporttype_t* ex
     }
 
     return results_count;
+}
+
+static inline void _start_wasi_if_needed(pTHX_ instance_holder_t* instance_holder_p) {
+    if (!instance_holder_p->wasi_sv) return;
+
+    if (instance_holder_p->wasi_started) return;
+
+    instance_holder_p->wasi_started = true;
+
+    wasm_func_t* func = wasi_get_start_function(instance_holder_p->instance);
+
+    wasm_val_t args_val[0] = {};
+    wasm_val_t results_val[0] = {};
+    wasm_val_vec_t args = WASM_ARRAY_VEC(args_val);
+    wasm_val_vec_t results = WASM_ARRAY_VEC(results_val);
+
+    own wasm_trap_t* trap = wasm_func_call(func, &args, &results);
+
+    _croak_if_trap(aTHX_ trap);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -291,6 +298,46 @@ create_instance (SV* self_sv, SV* imports_sv=NULL)
         RETVAL
 
 SV*
+serialize (SV* self_sv)
+    CODE:
+        module_holder_t* module_holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+        wasm_byte_vec_t binary;
+
+        wasm_module_serialize( module_holder_p->module, &binary );
+
+        SV* ret = newSVpvn(binary.data, binary.size);
+
+        wasm_byte_vec_delete(&binary);
+
+        RETVAL = ret;
+
+    OUTPUT:
+        RETVAL
+
+SV*
+deserialize (SV* store_sv, SV* bytes_sv)
+    CODE:
+        store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ store_sv);
+
+        STRLEN byteslen;
+        const char* bytes = SvPVbyte(bytes_sv, byteslen);
+
+        wasm_byte_vec_t vector;
+        wasm_byte_vec_new(&vector, byteslen, (wasm_byte_t*) bytes);
+
+        wasm_module_t* module = wasm_module_deserialize( store_holder_p->store, &vector );
+
+        wasm_byte_vec_delete(&vector);
+
+        if (!module) croak("Failed to deserialize module!");
+
+        RETVAL = module_to_sv(aTHX_ module, store_sv, P5_WASM_WASMER_MODULE_CLASS);
+
+    OUTPUT:
+        RETVAL
+
+SV*
 create_wasi_instance (SV* self_sv, SV* wasi_sv=NULL)
     CODE:
         if (NULL == wasi_sv) {
@@ -339,7 +386,7 @@ create_wasi_instance (SV* self_sv, SV* wasi_sv=NULL)
         // TODO: cleaner
         assert(instance);
 
-        RETVAL = instance_to_sv(aTHX_ instance, self_sv, wasi_sv, WASI_INSTANCE_CLASS);
+        RETVAL = instance_to_sv(aTHX_ instance, self_sv, wasi_sv, NULL);
 
     OUTPUT:
         RETVAL
@@ -460,7 +507,6 @@ export_functions (SV* self_sv)
             XSRETURN_EMPTY;
         }
 
-
 void
 call (SV* self_sv, SV* funcname_sv, ...)
     PPCODE:
@@ -471,25 +517,12 @@ call (SV* self_sv, SV* funcname_sv, ...)
 
         instance_holder_t* instance_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
-        module_holder_t* module_holder_p = svrv_to_ptr(aTHX_ instance_holder_p->module_sv);
+        wasm_exporttype_t* export_type;
 
-        wasm_exporttype_vec_t* export_types = &module_holder_p->export_types;
+        wasm_func_t* func = _get_instance_function(aTHX_ instance_holder_p, funcname, funcname_len, &export_type);
 
-        wasm_extern_vec_t* exports = &instance_holder_p->exports;
-
-        for (unsigned i = 0; i<exports->size; i++) {
-            if (wasm_extern_kind(exports->data[i]) != WASM_EXTERN_FUNC)
-                continue;
-
-            const wasm_name_t* name = wasm_exporttype_name(export_types->data[i]);
-
-            if (funcname_len != name->size) continue;
-            if (!memEQ(name->data, funcname, funcname_len)) continue;
-
-            /* Yay! We found our function. */
-
-            wasm_exporttype_t* export_type = export_types->data[i];
-            wasm_func_t* func = wasm_extern_as_func(exports->data[i]);
+        if (func) {
+            _start_wasi_if_needed(aTHX_ instance_holder_p);
 
             unsigned retvals = _call_wasm( aTHX_ SP, func, export_type, &ST(2), given_args_count );
 
@@ -557,6 +590,10 @@ void
 call (SV* self_sv, ...)
     PPCODE:
         function_holder_t* function_holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+        instance_holder_t* instance_holder_p = svrv_to_ptr(aTHX_ function_holder_p->instance_sv);
+
+        _start_wasi_if_needed(aTHX_ instance_holder_p);
 
         unsigned count = _call_wasm( aTHX_ SP, function_holder_p->function, function_holder_p->export_type, &ST(1), items - 1 );
 

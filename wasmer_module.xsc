@@ -18,6 +18,20 @@ typedef struct {
 
 #define get_store_sv_from_module_holder(holder) (holder->store_sv)
 
+SV* module_to_sv (pTHX_ wasm_module_t* module, SV* store_sv, const char* class) {
+    module_holder_t* module_holder_p;
+
+    Newx(module_holder_p, 1, module_holder_t);
+
+    module_holder_p->module = module;
+    module_holder_p->pid = getpid();
+    module_holder_p->store_sv = store_sv;
+
+    wasm_module_exports(module, &module_holder_p->export_types);
+
+    return ptr_to_svrv(aTHX_ module_holder_p, gv_stashpv(class, FALSE));
+}
+
 SV* create_module_sv (pTHX_ SV* class_sv, SV* wasm_sv, SV* store_sv) {
     const char* class = class_sv ? SvPVbyte_nolen(class_sv) : P5_WASM_WASMER_MODULE_CLASS;
 
@@ -40,17 +54,7 @@ SV* create_module_sv (pTHX_ SV* class_sv, SV* wasm_sv, SV* store_sv) {
 
     wasm_byte_vec_delete(&binary);
 
-    module_holder_t* module_holder_p;
-
-    Newx(module_holder_p, 1, module_holder_t);
-
-    module_holder_p->module = module;
-    module_holder_p->pid = getpid();
-    module_holder_p->store_sv = store_sv;
-
-    wasm_module_exports(module, &module_holder_p->export_types);
-
-    return ptr_to_svrv(aTHX_ module_holder_p, gv_stashpv(class, FALSE));
+    return module_to_sv(aTHX_ module, store_sv, class);
 }
 
 void destroy_module_sv (pTHX_ SV* self_sv) {

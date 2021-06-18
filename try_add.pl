@@ -27,3 +27,6 @@ print Dumper( ($instance->export_memories())[0]->data() );
 my $got = $instance->call('add', 2, 194);
 
 print Dumper [got => $got];
+
+$Data::Dumper::Useqq = 1;
+print Dumper( $module->serialize() );

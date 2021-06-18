@@ -41,8 +41,6 @@ my $ascript = Wasm::AssemblyScript->new(
     \%exports,
 );
 
-$instance->start();
-
 my $path_in = $ascript->new_text('/var/cpanel/users/superman');
 
 my $got_ptr = $instance->call('loadFile', $path_in->ptr());
