@@ -48,66 +48,36 @@ static wasm_func_t* _get_instance_function(pTHX_ instance_holder_t* instance_hol
     return NULL;
 }
 
-static CV* _get_import_coderef( pTHX_ AV* imports_av, const wasm_name_t* modname, const wasm_name_t* funcname ) {
-    for (SSize_t i=0; i<=av_top_index(imports_av); i++) {
-        SV** val = av_fetch(imports_av, i, 0);
-
-        if (val == NULL) {
-            croak("NULL found where ARRAY ref expected??");
-        }
-
-        if (!SvOK(*val)) {
-            croak("Uninitialized value found where ARRAY ref expected??");
-        }
-
-        AV* import_av = get_av_from_sv_or_croak( aTHX_ *val, "Import" );
-
-        SV** el0 = av_fetch(import_av, 0, 0);
-
-        SV **el1, **el2, **el3;
-
-        if (el0 == NULL) {
-            croak("NULL found at start of import??");
-        }
-
-        switch (SvUV(*el0)) {
-            case WASM_EXTERN_FUNC: {
-                    if (av_top_index(import_av) != 3) {
-                        croak("Function imports should have exactly 3 arguments, not %ld", 1 + av_top_index(import_av));
-                    }
-
-                    el1 = av_fetch(import_av, 1, 0);
-
-                    STRLEN perl_modname_len;
-                    const char* perl_modname = SvPVbyte(*el1, perl_modname_len);
-
-                    if (perl_modname_len != modname->size) break;
-                    if (!memEQ(perl_modname, modname->data, modname->size)) break;
-
-                    el2 = av_fetch(import_av, 2, 0);
-
-                    STRLEN perl_funcname_len;
-                    const char* perl_funcname = SvPVbyte(*el2, perl_funcname_len);
-
-                    if (perl_funcname_len != funcname->size) break;
-                    if (!memEQ(perl_funcname, funcname->data, funcname->size)) break;
-
-                    el3 = av_fetch(import_av, 3, 0);
-                    if (!SvROK(*el3) || SVt_PVCV != SvTYPE(SvRV(*el3))) {
-                        croak("Last arg to function import must be a coderef, not %" SVf, el3);
-                    }
-
-                    return (CV*) SvRV(*el3);
-                }
-
-                break;
-
-            default:
-                break;
-        }
+static inline HV* get_hv_from_sv_or_croak (pTHX_ SV* sv, const char* description) {
+    if (!SvROK(sv) || SVt_PVHV != SvTYPE(SvRV(sv))) {
+        croak("%s must be a HASH reference, not `%" SVf "`", description, sv);
     }
 
-    return NULL;
+    return (HV *) SvRV(sv);
+}
+
+static CV* _get_import_coderef( pTHX_ HV* imports_hv, const wasm_name_t* modname, const wasm_name_t* funcname ) {
+    SV** ns_hr_p = hv_fetch(imports_hv, modname->data, modname->size, 0);
+    if (!ns_hr_p) {
+        croak("Required import namespace “%.*s” not given!", (int) modname->size, modname->data);
+    }
+
+    if (!SvROK(*ns_hr_p) || SVt_PVHV != SvTYPE(SvRV(*ns_hr_p))) {
+        croak("Import namespace “%.*s” must be a HASH reference, not `%" SVf "`!", (int) modname->size, modname->data, *ns_hr_p);
+    }
+
+    HV* ns_hv = (HV*) SvRV(*ns_hr_p);
+    SV** import_val_p = hv_fetch(ns_hv, funcname->data, funcname->size, 0);
+
+    if (!import_val_p) {
+        croak("Required import “%.*s.%.*s” not given!", (int) modname->size, modname->data, (int) funcname->size, funcname->data);
+    }
+
+    if (!SvROK(*import_val_p) || SVt_PVCV != SvTYPE(SvRV(*import_val_p))) {
+        croak("Import “%.*s.%.*s” must be a CODE reference, not `%" SVf "`!", (int) modname->size, modname->data, (int) funcname->size, funcname->data, *import_val_p);
+    }
+
+    return (CV*) *import_val_p;
 }
 
 SV* instance_to_sv (pTHX_ wasm_instance_t* instance, SV* module_sv, SV* wasi_sv, const char* class) {
@@ -135,11 +105,11 @@ SV* instance_to_sv (pTHX_ wasm_instance_t* instance, SV* module_sv, SV* wasi_sv,
 SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv) {
     const char* class = class_sv ? SvPVbyte_nolen(class_sv) : P5_WASM_WASMER_INSTANCE_CLASS;
 
-    AV* imports_av = NULL;
+    HV* imports_hv = NULL;
 
     if (imports_sv) {
         if (SvOK(imports_sv)) {
-            imports_av = get_av_from_sv_or_croak( aTHX_ imports_sv, "Imports" );
+            imports_hv = get_hv_from_sv_or_croak( aTHX_ imports_sv, "Imports" );
         }
     }
 
@@ -165,7 +135,7 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv) {
 
         switch (wasm_externtype_kind(externtype)) {
             case WASM_EXTERN_FUNC: {
-                CV* coderef = _get_import_coderef(aTHX_ imports_av, modname, name);
+                CV* coderef = _get_import_coderef(aTHX_ imports_hv, modname, name);
 
                 const wasm_functype_t* functype = wasm_externtype_as_functype_const(externtype);
                 const wasm_valtype_vec_t* params = wasm_functype_params(functype);

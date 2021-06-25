@@ -23,25 +23,21 @@ print "created module\n";
 printf "wef: %s\n", Wasm::Wasmer::WASM_EXTERN_FUNC;
 
 my $instance = $module->create_instance(
-    [
-        [
-            Wasm::Wasmer::WASM_EXTERN_FUNC, 'callback', 'sayhi',
-            sub {
+    {
+        callback => {
+            sayhi => sub {
                 print "Hello from your callback!\n";
                 return;
             },
-        ],
-        [
-            Wasm::Wasmer::WASM_EXTERN_FUNC, 'callback', 'count',
-            sub {
+            count => sub {
                 my ($start, $end) = @_;
 
                 printf "%s\n", join(', ', $start .. $end);
 
                 return $end - $start;
             },
-        ],
-    ],
+        },
+    },
 );
 
 print "created instance\n";

@@ -22,10 +22,9 @@ print "created module\n";
 my ($ascript_rdr, $ascript_wtr);
 
 my $instance = $module->create_instance(
-    [
-        [
-            Wasm::Wasmer::WASM_EXTERN_FUNC, 'env', 'abort',
-            sub {
+    {
+        env => {
+            abort => sub {
                 my ($msg, $filename, $line, $col) = @_;
 
                 $msg = $ascript_rdr->get_text($msg);
@@ -33,8 +32,8 @@ my $instance = $module->create_instance(
 
                 die "$filename: $msg (line $line, col $col)";
             },
-        ],
-    ],
+        },
+    },
 );
 
 print "created instance\n";

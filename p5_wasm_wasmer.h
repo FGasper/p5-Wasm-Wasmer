@@ -44,14 +44,6 @@ void _croak_if_trap (pTHX_ wasm_trap_t* trap) {
     }
 }
 
-static inline AV* get_av_from_sv_or_croak (pTHX_ SV* sv, const char* description) {
-    if (!SvROK(sv) || SVt_PVAV != SvTYPE(SvRV(sv))) {
-        croak("%s must be an ARRAY reference, not `%" SVf "`", description, sv);
-    }
-
-    return (AV *) SvRV(sv);
-}
-
 // This really ought to be in Perl’s API, or some standard XS toolkit …
 static inline IV grok_iv (pTHX_ SV* sv) {
     if (SvIOK_notUV(sv)) return SvIV(sv);

@@ -24,16 +24,15 @@ print "created module\n";
 printf "wef: %s\n", Wasm::Wasmer::WASM_EXTERN_FUNC;
 
 my $instance = $module->create_instance(
-    [
-        [
-            Wasm::Wasmer::WASM_EXTERN_FUNC, 'env', 'abort',
-            sub {
+    {
+        env => {
+            abort => sub {
                 use Data::Dumper;
                 print STDERR Dumper('in env abort', [@_]);
                 return;
             },
-        ],
-    ],
+        },
+    },
 );
 
 print "created instance\n";

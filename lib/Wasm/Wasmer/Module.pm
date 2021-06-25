@@ -44,40 +44,26 @@ and returns a I<CLASS> instance representing that.
 Optionally associates the parse of that module with a
 L<Wasm::Wasmer::Store> instance.
 
-=head2 $instance = I<OBJ>->create_instance( \@IMPORTS )
+=head2 $instance = I<OBJ>->create_instance( \%IMPORTS )
 
 Creates a L<Wasm::Wasmer::Instance> instance from I<OBJ> with the
-(optional) given @IMPORTS. (NB: @IMPORTS is given via I<reference>.)
+(optional) given %IMPORTS. (NB: %IMPORTS is given via I<reference>.)
 
-Each @IMPORTS member is an arrayref. Options are:
+%IMPORTS is a hash-of-hashrefs that indicates namespace and name of
+each import.
 
-=over
+Example usage:
 
-=item * To represent a function, give:
+    my $instance = $module->create_instance(
+        {
+            env => {
+                abort => sub { die "@_" },
+            },
+        },
+    );
 
-    [ Wasm::Wasmer::WASM_EXTERN_FUNC, $namespace, $name, sub { .. } ]
-
-=item * To represent a global, give:
-
-    [ Wasm::Wasmer::WASM_EXTERN_GLOBAL, $type, $value ]
-
-… where C<$type> is one of:
-
-=over
-
-=item * Wasm::Wasmer::WASM_I32_VAL
-
-=item * Wasm::Wasmer::WASM_I64_VAL
-
-=item * Wasm::Wasmer::WASM_F32_VAL
-
-=item * Wasm::Wasmer::WASM_F64_VAL
-
-=back
-
-=back
-
-(WebAssembly’s other import types are currently unimplemented.)
+For now this interface supports function imports only. Other import types can
+be added as needed.
 
 =head2 $instance = I<OBJ>->create_wasi_instance( [$WASI] )
 
