@@ -22,8 +22,6 @@ wasm_trap_t* host_func_callback( void* env, const wasm_val_vec_t* args, wasm_val
 
     dSP;
 
-    fprintf(stderr, "host_func_callback\n");
-
     if (args->size) {
         ENTER;
         SAVETMPS;

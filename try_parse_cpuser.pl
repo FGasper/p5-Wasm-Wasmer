@@ -5,7 +5,7 @@ use cPstrict;
 use Wasm::Wasmer;
 
 use lib '../p5-Wasm-AssemblyScript/lib';
-use Wasm::AssemblyScript::Instance ('as_text');
+use Wasm::AssemblyScript::Instance ('as_text', 'as_binary');
 
 use File::Slurper;
 use Data::Dumper;
@@ -26,20 +26,26 @@ my $instance = Wasm::AssemblyScript::Instance::create_wasi(
                 my $path = $asc->_ascript->get($path_ptr);
                 return as_text(File::Slurper::read_text($path));
             },
-        },
-    },
-    {
-        env => {
-            abort => sub ($asc, $msg_ptr, $file_ptr, $line, $col) {
-                my $msg = $asc->get($msg_ptr);
-                my $file = $asc->get($file_ptr);
-
-                Carp::croak "abort: $msg at $file:$line:$col";
+            slurp_binary => sub ($asc, $path_ptr) {
+                my $path = $asc->_ascript->get($path_ptr);
+                return as_binary(File::Slurper::read_binary($path));
             },
         },
     },
 );
 
 use Benchmark;
-my $cpuser_json = $instance->call_get("load_cpuser_file_JSON");
-my $cpuser_hr = JSON::XS::decode_json($cpuser_json);
+use Cpanel::Config::LoadCpUserFile;
+
+Benchmark::cmpthese(
+    10000,
+    {
+        wasm => sub {
+            my $cpuser_kvbin = $instance->call_get("load_cpuser_file_KVBuffer", as_binary("superman"));
+            my $cpuser_hr = { split "\0", $cpuser_kvbin };
+        },
+        perl => sub {
+            my $cpuser = Cpanel::Config::LoadCpUserFile::load_or_die("superman");
+        },
+    },
+);
