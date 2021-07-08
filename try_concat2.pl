@@ -17,7 +17,8 @@ my $wasm = File::Slurper::read_binary("concat.wasm");
 
 my $module = Wasm::Wasmer::Module->new($wasm);
 
-my $instance = $module->create_instance(
+my $instance = Wasm::AssemblyScript::Instance::create(
+    $module,
     {
         env => {
             abort => sub {
@@ -26,12 +27,18 @@ my $instance = $module->create_instance(
                 return;
             },
         },
+
+        concat => {
+            logi => sub {
+                use Data::Dumper;
+                print STDERR Dumper('in logi', [@_]);
+                return;
+            },
+        },
     },
 );
 
-my $asc = Wasm::AssemblyScript::Instance::create($instance);
-
-my $got_str = $asc->call_text('concat', as_text('hello'), as_text('world'));
+my $got_str = $instance->call_get('concat', as_text('hello'), as_text('world'));
 
 print $got_str;
 

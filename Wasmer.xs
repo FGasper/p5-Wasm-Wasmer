@@ -292,7 +292,7 @@ DESTROY (SV* self_sv)
 SV*
 create_instance (SV* self_sv, SV* imports_sv=NULL)
     CODE:
-        RETVAL = create_instance_sv(aTHX_ NULL, self_sv, imports_sv);
+        RETVAL = create_instance_sv(aTHX_ NULL, self_sv, imports_sv, NULL);
 
     OUTPUT:
         RETVAL
@@ -345,9 +345,9 @@ deserialize (SV* bytes_sv, SV* store_sv=NULL)
         RETVAL
 
 SV*
-create_wasi_instance (SV* self_sv, SV* wasi_sv=NULL)
+create_wasi_instance (SV* self_sv, SV* wasi_sv=NULL, SV* imports_sv=NULL)
     CODE:
-        if (NULL == wasi_sv) {
+        if (NULL == wasi_sv || !SvOK(wasi_sv)) {
             wasi_config_t* config = wasi_config_new("");
             wasi_env_t* wasienv = wasi_env_new(config);
             wasi_holder_t* holder = wasi_env_to_holder(aTHX_ wasienv);
@@ -367,33 +367,31 @@ create_wasi_instance (SV* self_sv, SV* wasi_sv=NULL)
         SV* store_sv = module_holder_p->store_sv;
         store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ store_sv);
 
-        wasm_trap_t* traps = NULL;
+        wasmer_named_extern_vec_t host_imports;
 
-        wasm_importtype_vec_t import_types;
-        wasm_module_imports(module_holder_p->module, &import_types);
-
-        wasm_extern_vec_t imports;
-        wasm_extern_vec_new_uninitialized(&imports, import_types.size);
-        wasm_importtype_vec_delete(&import_types);
-
-        bool get_imports_result = wasi_get_imports(store_holder_p->store, module_holder_p->module, wasi_env_p, &imports);
+        /*
+            XXX: This function is unstable & non-standard, but it’s the
+            only way currently to mix WASI imports with host functions.
+        */
+        bool get_imports_result = wasi_get_unordered_imports(
+            store_holder_p->store,
+            module_holder_p->module,
+            wasi_env_p,
+            &host_imports
+        );
 
         if (!get_imports_result) {
             print_wasmer_error();
             croak("> Error getting WASI imports!\n");
         }
 
-        wasm_instance_t* instance = wasm_instance_new(
-            NULL, /* Ignored, per the documentation */
-            module_holder_p->module,
-            &imports,
-            &traps
-        );
+        SV* instance_sv = create_instance_sv(aTHX_ NULL, self_sv, imports_sv, &host_imports);
 
-        // TODO: cleaner
-        assert(instance);
+        instance_holder_t* instance_holder_p = svrv_to_ptr(aTHX_ instance_sv);
+        instance_holder_p->wasi_sv = wasi_sv;
+        SvREFCNT_inc(wasi_sv);
 
-        RETVAL = instance_to_sv(aTHX_ instance, self_sv, wasi_sv, NULL);
+        RETVAL = instance_sv;
 
     OUTPUT:
         RETVAL

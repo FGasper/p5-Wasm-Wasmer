@@ -32,6 +32,13 @@ my $instance = $module->create_instance(
                 return;
             },
         },
+        concat => {
+            logi => sub {
+                use Data::Dumper;
+                print STDERR Dumper('in logi', [@_]);
+                return;
+            },
+        },
     },
 );
 

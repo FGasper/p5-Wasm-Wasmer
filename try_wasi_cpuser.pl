@@ -25,8 +25,10 @@ my $wasi = Wasm::Wasmer::WASI->new(
 );
 
 my $instance = $module->create_wasi_instance($wasi);
+print "========= instance created\n";
 
 undef $wasi;
+print "========= foo\n";
 
 my %exports = map {
     my $fn = $_;

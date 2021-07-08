@@ -44,12 +44,12 @@ and returns a I<CLASS> instance representing that.
 Optionally associates the parse of that module with a
 L<Wasm::Wasmer::Store> instance.
 
-=head2 $instance = I<OBJ>->create_instance( \%IMPORTS )
+=head2 $instance = I<OBJ>->create_instance( [ \%IMPORTS ] )
 
 Creates a L<Wasm::Wasmer::Instance> instance from I<OBJ> with the
 (optional) given %IMPORTS. (NB: %IMPORTS is given via I<reference>.)
 
-%IMPORTS is a hash-of-hashrefs that indicates namespace and name of
+%IMPORTS is an optional hash-of-hashrefs that indicates namespace and name of
 each import.
 
 Example usage:
@@ -65,7 +65,7 @@ Example usage:
 For now this interface supports function imports only. Other import types can
 be added as needed.
 
-=head2 $instance = I<OBJ>->create_wasi_instance( [$WASI] )
+=head2 $instance = I<OBJ>->create_wasi_instance( [ $WASI ], [ \%IMPORTS ] )
 
 Creates a L<Wasm::Wasmer::Instance> instance from I<OBJ>.
 That object’s WebAssembly imports will be the L<WASI|https://wasi.dev>
@@ -74,6 +74,9 @@ interface.
 The optional $WASI argument is a L<Wasm::Wasmer::WASI> instance.
 Omitting this argument is equivalent to giving
 C<Wasm::Wasmer::WASI-E<gt>new()> as its value.
+
+The optional %IMPORTS reference (I<reference>!) is as for C<create_instance()>.
+Note that you can override WASI imports with this, if you so desire.
 
 =cut
 
