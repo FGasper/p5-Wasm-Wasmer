@@ -732,11 +732,14 @@ _new (SV* classname_sv, SV* wasiname_sv, SV* opts_hr=NULL)
                     SV* key = hv_iterkeysv(h_entry);
                     SV* value = hv_iterval(map, h_entry);
 
-                    wasi_config_mapdir(
-                        config,
-                        SvPVbyte_nolen(key),
-                        SvPVbyte_nolen(value)
-                    );
+                    const char* keystr = SvPVbyte_nolen(key);
+                    const char* valuestr = SvPVbyte_nolen(value);
+
+                    bool ok = wasi_config_mapdir( config, keystr, valuestr );
+
+                    if (!ok) {
+                        croak("Failed to map alias %s to directory %s!", keystr, valuestr);
+                    }
                 }
             }
         }
