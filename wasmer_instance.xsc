@@ -183,7 +183,6 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
                 if (NULL == coderef) {
                     if (host_imports) {
                         cur_extern_p = (wasm_extern_t*) _get_host_import(host_imports, modname, name);
-fprintf(stderr, "host import: %p\n", cur_extern_p);
                     }
 
                     if (!cur_extern_p) {
