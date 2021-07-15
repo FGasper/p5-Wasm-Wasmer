@@ -35,7 +35,7 @@ void _croak_if_wasmer_error(pTHX) {
         char msg[wasmer_errlen];
         wasmer_last_error_message(msg, wasmer_errlen);
 
-        warn("Wasmer error: %.*s", wasmer_errlen, msg);
+        croak("Wasmer error: %.*s", wasmer_errlen, msg);
     }
 }
 

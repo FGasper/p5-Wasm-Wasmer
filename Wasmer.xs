@@ -27,10 +27,12 @@
 #include "wasmer_instance.xsc"
 #include "wasmer_function.xsc"
 #include "wasmer_memory.xsc"
+#include "wasmer_global.xsc"
 #include "wasmer_wasi.xsc"
 
 #define WASI_CLASS "Wasm::Wasmer::WASI"
 #define MEMORY_CLASS "Wasm::Wasmer::Memory"
+#define GLOBAL_CLASS "Wasm::Wasmer::Global"
 #define FUNCTION_CLASS "Wasm::Wasmer::Function"
 
 #define _ptr_to_svrv ptr_to_svrv
@@ -179,6 +181,8 @@ MODULE = Wasm::Wasmer     PACKAGE = Wasm::Wasmer
 
 BOOT:
     newCONSTSUB(gv_stashpv("Wasm::Wasmer", 0), "WASM_EXTERN_FUNC", newSVuv(WASM_EXTERN_FUNC));
+    newCONSTSUB(gv_stashpv("Wasm::Wasmer", 0), "WASM_CONST", newSVuv(WASM_CONST));
+    newCONSTSUB(gv_stashpv("Wasm::Wasmer", 0), "WASM_VAR", newSVuv(WASM_VAR));
 
 # void
 # check_leaks (SV* wasm_sv)
@@ -214,11 +218,20 @@ wat2wasm ( SV* wat_sv )
 
         wasm_byte_vec_delete(&watvec);
 
-        SV* ret = newSVpvn(wasmvec.data, wasmvec.size);
+        if (wasmvec.size > 0) {
+            SV* ret = newSVpvn(wasmvec.data, wasmvec.size);
 
-        wasm_byte_vec_delete(&wasmvec);
+            wasm_byte_vec_delete(&wasmvec);
 
-        RETVAL = ret;
+            RETVAL = ret;
+        }
+        else {
+            wasm_byte_vec_delete(&wasmvec);
+
+            _croak_if_wasmer_error(aTHX);
+
+            croak("wat2wasm failed but left no message!");
+        }
 
     OUTPUT:
         RETVAL
@@ -258,24 +271,6 @@ new (SV* class_sv, SV* engine_sv=NULL)
         if (!SvPOK(class_sv)) croak("Give a class name!");
 
         RETVAL = create_store_sv(aTHX_ class_sv, engine_sv);
-
-    OUTPUT:
-        RETVAL
-
-bool
-validate_module (SV* self_sv, SV* wasm_sv)
-    CODE:
-        store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ self_sv);
-
-        STRLEN wasmlen;
-        const wasm_byte_t* wasmbytes = SvPVbyte(wasm_sv, wasmlen);
-
-        wasm_byte_vec_t wasm;
-        wasm_byte_vec_new( &wasm, wasmlen, wasmbytes );
-
-        RETVAL = wasm_module_validate(store_holder_p->store, &wasm);
-
-        wasm_byte_vec_delete(&wasm);
 
     OUTPUT:
         RETVAL
@@ -336,6 +331,9 @@ serialize (SV* self_sv)
 SV*
 deserialize (SV* bytes_sv, SV* store_sv=NULL)
     CODE:
+        STRLEN byteslen;
+        const char* bytes = SvPVbyte(bytes_sv, byteslen);
+
         if (store_sv) {
             SvREFCNT_inc(store_sv);
         }
@@ -344,9 +342,6 @@ deserialize (SV* bytes_sv, SV* store_sv=NULL)
         }
 
         store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ store_sv);
-
-        STRLEN byteslen;
-        const char* bytes = SvPVbyte(bytes_sv, byteslen);
 
         wasm_byte_vec_t vector;
         wasm_byte_vec_new(&vector, byteslen, (wasm_byte_t*) bytes);
@@ -358,6 +353,34 @@ deserialize (SV* bytes_sv, SV* store_sv=NULL)
         if (!module) croak("Failed to deserialize module!");
 
         RETVAL = module_to_sv(aTHX_ module, store_sv, P5_WASM_WASMER_MODULE_CLASS);
+
+    OUTPUT:
+        RETVAL
+
+bool
+validate (SV* wasm_sv, SV* store_sv_in=NULL)
+    CODE:
+        STRLEN wasmlen;
+        const wasm_byte_t* wasmbytes = SvPVbyte(wasm_sv, wasmlen);
+
+        SV* store_sv;
+
+        if (store_sv_in) {
+            store_sv = store_sv_in;
+        }
+        else {
+            store_sv = create_store_sv(aTHX_ NULL, NULL);
+            sv_2mortal(store_sv);
+        }
+
+        store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ store_sv);
+
+        wasm_byte_vec_t wasm;
+        wasm_byte_vec_new( &wasm, wasmlen, wasmbytes );
+
+        RETVAL = wasm_module_validate(store_holder_p->store, &wasm);
+
+        wasm_byte_vec_delete(&wasm);
 
     OUTPUT:
         RETVAL
@@ -476,6 +499,61 @@ export_memories (SV* self_sv)
         }
 
 void
+export_globals (SV* self_sv)
+    PPCODE:
+        if (GIMME_V != G_ARRAY) croak("List context only!");
+
+        instance_holder_t* instance_holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+        wasm_extern_vec_t* exports = &instance_holder_p->exports;
+
+        module_holder_t* module_holder_p = svrv_to_ptr(aTHX_ instance_holder_p->module_sv);
+
+        wasm_exporttype_vec_t* export_types = &module_holder_p->export_types;
+
+        unsigned return_count = 0;
+
+        SV* possible_global_sv[exports->size];
+
+        pid_t pid = getpid();
+
+        for (unsigned i = 0; i<exports->size; i++) {
+            if (wasm_extern_kind(exports->data[i]) != WASM_EXTERN_GLOBAL)
+                continue;
+
+            global_holder_t* global_holder;
+            Newx(global_holder, 1, global_holder_t);
+
+            wasm_global_t* global = wasm_extern_as_global(exports->data[i]);
+
+            global_holder->global = global;
+            global_holder->pid = pid;
+            global_holder->export_type = export_types->data[i];
+
+            global_holder->instance_sv = self_sv;
+            SvREFCNT_inc(self_sv);
+
+            possible_global_sv[return_count] = _ptr_to_svrv( aTHX_
+                global_holder,
+                gv_stashpv(GLOBAL_CLASS, FALSE)
+            );
+
+            return_count++;
+        }
+
+        if (return_count) {
+            EXTEND(SP, return_count);
+
+            for (unsigned i=0; i<return_count; i++)
+                mPUSHs(possible_global_sv[i]);
+
+            XSRETURN(return_count);
+        }
+        else {
+            XSRETURN_EMPTY;
+        }
+
+void
 export_functions (SV* self_sv)
     PPCODE:
         if (GIMME_V != G_ARRAY) croak("List context only!");
@@ -558,6 +636,51 @@ void
 DESTROY (SV* self_sv)
     CODE:
         destroy_instance_sv(aTHX_ self_sv);
+
+# ----------------------------------------------------------------------
+
+MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Global
+
+SV*
+name (SV* self_sv)
+    CODE:
+        RETVAL = global_sv_name_sv(aTHX_ self_sv);
+
+    OUTPUT:
+        RETVAL
+
+SV*
+mutability (SV* self_sv)
+    CODE:
+        RETVAL = global_sv_mutability_sv(aTHX_ self_sv);
+
+    OUTPUT:
+        RETVAL
+
+SV*
+get (SV* self_sv)
+    CODE:
+        RETVAL = global_sv_get_sv(aTHX_ self_sv);
+
+    OUTPUT:
+        RETVAL
+
+SV*
+set (SV* self_sv, SV* newval)
+    CODE:
+        global_sv_set_sv(aTHX_ self_sv, newval);
+
+        SvREFCNT_inc(self_sv);
+
+        RETVAL = self_sv;
+
+    OUTPUT:
+        RETVAL
+
+void
+DESTROY (SV* self_sv)
+    CODE:
+        destroy_global_sv(aTHX_ self_sv);
 
 # ----------------------------------------------------------------------
 

@@ -33,16 +33,4 @@ sub test_new : Tests(2) {
     return;
 }
 
-sub test_validate_module : Tests(2) {
-    my $ok_wat = '(module)';
-    my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
-
-    my $store = Wasm::Wasmer::Store->new();
-
-    ok($store->validate_module($ok_wasm), 'valid wasm');
-    ok(!$store->validate_module('//////'), 'invalid wasm');
-
-    return;
-}
-
 1;
