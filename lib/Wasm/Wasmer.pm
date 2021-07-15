@@ -33,8 +33,29 @@ Wasm::Wasmer - Run L<WebAssembly|https://webassembly.org/> via L<http://wasmer.i
 
 =head1 DESCRIPTION
 
-This module provides an XS binding for L<http://wasmer.io/Wasmer|Wasmer>’s C API, yielding
-a simple, fast way to run WebAssembly in Perl.
+This distribution provides an XS binding for L<http://wasmer.io/Wasmer|Wasmer>,
+yielding a simple, fast way to run WebAssembly (WASM) in Perl.
+
+=head1 MODULE RELATIONSHIPS
+
+We mostly follow the relationships from
+L<Wasmer’s C API|https://docs.rs/wasmer-c-api>:
+
+=head2 * A L<Wasm::Wasmer::Engine> instance is the first thing needed
+to run some WASM code. In Perl we auto-create that object by default,
+though, so you may not need to worry about this one.
+
+=head2 * L<Wasm::Wasmer::Store> uses a L<Wasm::Wasmer::Engine> object
+(auto-created by default) to provide backend storage for Wasmer. This
+object is also auto-created by default.
+
+=head2 * L<Wasm::Wasmer::Module> uses a L<Wasm::Wasmer::Store> object
+to represent a parsed WASM module. (This one you have to instantiate
+manually.)
+
+=head2 * L<Wasm::Wasmer::Instance> uses a L<Wasm::Wasmer::Module> object
+to represent an in-progress WASM program. You’ll instantiate these
+via methods on the L<Wasm::Wasmer::Module> object.
 
 =head1 SEE ALSO
 

@@ -262,6 +262,24 @@ new (SV* class_sv, SV* engine_sv=NULL)
     OUTPUT:
         RETVAL
 
+bool
+validate_module (SV* self_sv, SV* wasm_sv)
+    CODE:
+        store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+        STRLEN wasmlen;
+        const wasm_byte_t* wasmbytes = SvPVbyte(wasm_sv, wasmlen);
+
+        wasm_byte_vec_t wasm;
+        wasm_byte_vec_new( &wasm, wasmlen, wasmbytes );
+
+        RETVAL = wasm_module_validate(store_holder_p->store, &wasm);
+
+        wasm_byte_vec_delete(&wasm);
+
+    OUTPUT:
+        RETVAL
+
 void
 DESTROY (SV* self_sv)
     CODE:

@@ -29,8 +29,9 @@ Wasm::Wasmer::Module
 
 =head1 DESCRIPTION
 
-This class represents a parsed WebAssembly module. It’s the
-essential hub for all interactions with L<Wasm::Wasmer>.
+This class represents a parsed WebAssembly module.
+
+See L<Wasmer’s documentation|https://docs.rs/wasmer-c-api/2.0.0/wasmer_c_api/wasm_c_api/module> for a bit more context.
 
 =head1 METHODS
 
@@ -65,18 +66,30 @@ Example usage:
 For now this interface supports function imports only. Other import types can
 be added as needed.
 
-=head2 $instance = I<OBJ>->create_wasi_instance( [ $WASI ], [ \%IMPORTS ] )
+=head2 $instance = I<OBJ>->create_wasi_instance( $WASI, [ \%IMPORTS ] )
 
 Creates a L<Wasm::Wasmer::Instance> instance from I<OBJ>.
 That object’s WebAssembly imports will be the L<WASI|https://wasi.dev>
 interface.
 
-The optional $WASI argument is a L<Wasm::Wasmer::WASI> instance.
-Omitting this argument is equivalent to giving
-C<Wasm::Wasmer::WASI-E<gt>new()> as its value.
+$WASI argument is either undef or a L<Wasm::Wasmer::WASI> instance.
+Undef is equivalent to C<Wasm::Wasmer::WASI-E<gt>new()>.
 
 The optional %IMPORTS reference (I<reference>!) is as for C<create_instance()>.
 Note that you can override WASI imports with this, if you so desire.
+
+=head2 $bytes = I<OBJ>->serialize()
+
+Serializes the in-memory module for later use. (cf. C<deserialize()> below)
+
+=cut
+
+=head1 STATIC FUNCTIONS
+
+=head2 $module = deserialize( $SERIALIZED_BIN [, $STORE ] )
+
+Like this class’s C<new()> method but takes a serialized module
+rather than WASM code.
 
 =cut
 

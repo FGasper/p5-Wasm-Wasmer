@@ -238,13 +238,18 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
     }
 
     own wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
-    wasm_trap_t* traps = NULL;
+
+    // Wasmer’s docs name the trap argument “traps”, which suggests that
+    // wasm_instance_new() can create multiple traps, but the Rust code
+    // actually only creates 0 or 1.
+    //
+    wasm_trap_t* trap = NULL;
 
     own wasm_instance_t* instance = wasm_instance_new(
         NULL, /* Ignored, per the documentation */
         module_holder_p->module,
         &imports,
-        &traps
+        &trap
     );
 
     for (unsigned i=0; i<import_types.size; i++) {
@@ -254,8 +259,12 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
 
     wasm_importtype_vec_delete(&import_types);
 
-    // TODO: cleaner
-    assert(instance);
+    if (!instance) {
+        _croak_if_trap(aTHX_ trap);
+        _croak_if_wasmer_error(aTHX);
+
+        assert(0 && "wasm_instance_new() failed without error?!?");
+    }
 
     return instance_to_sv(instance, module_sv, class);
 }

@@ -29,12 +29,43 @@ void croak_if_non_null_not_derived (pTHX_ SV *obj, const char* classname) {
     }
 }
 
+void _croak_if_wasmer_error(pTHX) {
+    int wasmer_errlen = wasmer_last_error_length();
+    if (wasmer_errlen > 0) {
+        char msg[wasmer_errlen];
+        wasmer_last_error_message(msg, wasmer_errlen);
+
+        warn("Wasmer error: %.*s", wasmer_errlen, msg);
+    }
+}
+
 void _croak_if_trap (pTHX_ wasm_trap_t* trap) {
     if (trap != NULL) {
         wasm_name_t message;
         wasm_trap_message(trap, &message);
 
-        SV* err_sv = newSVpv(message.data, 0);
+        wasm_frame_t* origin = wasm_trap_origin(trap);
+
+        SV* err_sv;
+
+        if (origin) {
+            err_sv = newSVpvf(
+                "Wasmer trap: %.*s (func %u offset %zu)",
+                (int) message.size,
+                message.data,
+                wasm_frame_func_index(origin),
+                wasm_frame_func_offset(origin)
+            );
+
+            wasm_frame_delete(origin);
+        }
+        else {
+            err_sv = newSVpvf(
+                "Wasmer trap: %.*s",
+                (int) message.size,
+                message.data
+            );
+        }
 
         wasm_name_delete(&message);
         wasm_trap_delete(trap);

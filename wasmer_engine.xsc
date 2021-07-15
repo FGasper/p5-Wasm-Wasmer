@@ -11,6 +11,27 @@ typedef struct {
     pid_t pid;
 } engine_holder_t;
 
+typedef struct {
+    wasmer_compiler_t optval;
+    const char* argval;
+} compiler_opt_t;
+
+typedef struct {
+    wasmer_engine_t optval;
+    const char* argval;
+} engine_opt_t;
+
+static const compiler_opt_t compiler_opts[] = {
+    { .optval = CRANELIFT,  .argval = "cranelift" },
+    { .optval = LLVM,       .argval = "llvm" },
+    { .optval = SINGLEPASS, .argval = "singlepass" },
+};
+
+static const engine_opt_t engine_opts[] = {
+    { .optval = UNIVERSAL, .argval = "universal" },
+    { .optval = DYLIB,     .argval = "dylib" },
+};
+
 SV* create_engine_sv (pTHX_ SV* class_sv, SV** args, unsigned argscount) {
     const char* class = class_sv ? SvPVbyte_nolen(class_sv) : P5_WASM_WASMER_ENGINE_CLASS;
 
@@ -21,40 +42,83 @@ SV* create_engine_sv (pTHX_ SV* class_sv, SV** args, unsigned argscount) {
     wasm_engine_t* engine;
 
     if (argscount) {
-        wasm_config_t* config = wasm_config_new();
+        // Initialize the *_type vars to dummy values:
+
+        wasmer_compiler_t compiler_type = compiler_opts[0].optval;
+        bool compiler_type_set = false;
+
+        wasmer_engine_t engine_type = engine_opts[0].optval;
+        bool engine_type_set = false;
 
         unsigned a=0;
         for (; a<argscount; a += 2) {
             const char* argname = SvPVbyte_nolen(args[a]);
 
             if (strEQ("compiler", argname)) {
-                wasmer_compiler_t compiler;
-
                 const char* argval = SvPVbyte_nolen(args[1+a]);
 
-                if (strEQ("cranelift", argval)) {
-                    compiler = CRANELIFT;
-                }
-                else if (strEQ("llvm", argval)) {
-                    compiler = LLVM;
-                }
-                else if (strEQ("singlepass", argval)) {
-                    compiler = SINGLEPASS;
-                }
-                else {
-                    wasm_config_delete(config);
-                    croak("Bad %s: `%s`", argname, argval);
+                unsigned optscount = sizeof(compiler_opts) / sizeof(compiler_opt_t);
+
+                unsigned c = 0;
+
+                while (c < optscount) {
+                    if (strEQ(argval, compiler_opts[c].argval)) {
+                        compiler_type = compiler_opts[c].optval;
+                        compiler_type_set = true;
+
+                        if (!wasmer_is_compiler_available(compiler_type)) {
+                            croak("Unsupported %s: %s", argname, argval);
+                        }
+
+                        break;
+                    }
+
+                    c++;
                 }
 
-                if (!wasmer_is_compiler_available(compiler)) {
-                    wasm_config_delete(config);
-                    croak("Unsupported %s: %s", argname, argval);
+                if (!compiler_type_set) {
+                    croak("Bad %s: `%s`", argname, argval);
+                }
+            }
+            else if (strEQ("engine", argname)) {
+                const char* argval = SvPVbyte_nolen(args[1+a]);
+
+                unsigned optscount = sizeof(engine_opts) / sizeof(engine_opt_t);
+
+                unsigned c = 0;
+
+                while (c < optscount) {
+                    if (strEQ(argval, engine_opts[c].argval)) {
+                        engine_type = engine_opts[c].optval;
+                        engine_type_set = true;
+
+                        if (!wasmer_is_engine_available(engine_type)) {
+                            croak("Unsupported %s: %s", argname, argval);
+                        }
+
+                        break;
+                    }
+
+                    c++;
+                }
+
+                if (!engine_type_set) {
+                    croak("Bad %s: `%s`", argname, argval);
                 }
             }
             else {
-                wasm_config_delete(config);
                 croak("Bad argument: %s", argname);
             }
+        }
+
+        wasm_config_t* config = wasm_config_new();
+
+        if (compiler_type_set) {
+            wasm_config_set_compiler(config, compiler_type);
+        }
+
+        if (engine_type_set) {
+            wasm_config_set_engine(config, engine_type);
         }
 
         engine = wasm_engine_new_with_config(config);
