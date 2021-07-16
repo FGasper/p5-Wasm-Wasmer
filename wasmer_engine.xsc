@@ -3,8 +3,6 @@
 
 #include "p5_wasm_wasmer.h"
 
-#define P5_WASM_WASMER_ENGINE_CLASS "Wasm::Wasmer::Engine"
-
 typedef struct {
     wasm_engine_t* engine;
 
@@ -32,13 +30,7 @@ static const engine_opt_t engine_opts[] = {
     { .optval = DYLIB,     .argval = "dylib" },
 };
 
-SV* create_engine_sv (pTHX_ SV* class_sv, SV** args, unsigned argscount) {
-    const char* class = class_sv ? SvPVbyte_nolen(class_sv) : P5_WASM_WASMER_ENGINE_CLASS;
-
-    if (argscount % 2) {
-        croak("%s::new: Uneven args list!", class);
-    }
-
+wasm_engine_t* create_engine (pTHX_ SV** args, unsigned argscount) {
     wasm_engine_t* engine;
 
     if (argscount) {
@@ -127,24 +119,7 @@ SV* create_engine_sv (pTHX_ SV* class_sv, SV** args, unsigned argscount) {
         engine = wasm_engine_new();
     }
 
-    engine_holder_t* engine_holder_p;
-
-    Newx(engine_holder_p, 1, engine_holder_t);
-
-    engine_holder_p->engine = engine;
-    engine_holder_p->pid = getpid();
-
-    return ptr_to_svrv(aTHX_ engine_holder_p, gv_stashpv(class, FALSE));
-}
-
-void destroy_engine_sv (pTHX_ SV* self_sv) {
-    engine_holder_t* engine_holder_p = svrv_to_ptr(aTHX_ self_sv);
-
-    warn_destruct_if_needed(self_sv, engine_holder_p->pid);
-
-    wasm_engine_delete(engine_holder_p->engine);
-
-    Safefree(engine_holder_p);
+    return engine;
 }
 
 #endif

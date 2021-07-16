@@ -12,11 +12,13 @@ Wasm::Wasmer::Store
 
     my $store = Wasm::Wasmer::Store->new();
 
-The above auto-creates a L<Wasm::Wasmer::Engine> instance.
-For more fine-grained control over compilation and performance,
-use a pre-built engine, e.g.:
+For more fine-grained control over compilation and performance
+you can pass options like, e.g.:
 
-    my $store = Wasm::Wasmer::Store->new($engine);
+    my $store = Wasm::Wasmer::Store->new(
+        compiler => 'llvm',
+        engine => 'dylib',
+    );
 
 See L<Wasm::Wasmer::Module> for what you can do with $store.
 
@@ -24,16 +26,32 @@ See L<Wasm::Wasmer::Module> for what you can do with $store.
 
 =head1 DESCRIPTION
 
-This class represents a WASM “store”.
-See L<Wasmer’s documentation|https://docs.rs/wasmer-c-api/2.0.0/wasmer_c_api/wasm_c_api/store> for a bit more context.
+This class represents a WASM “store” and “engine” pair.
+See Wasmer’s
+L<store|https://docs.rs/wasmer-c-api/2.0.0/wasmer_c_api/wasm_c_api/store>
+and
+L<engine|https://docs.rs/wasmer-c-api/2.0.0/wasmer_c_api/wasm_c_api/engine>
+modules for a bit more context.
 
 =cut
 
 =head1 METHODS
 
-=head2 $obj = I<CLASS>->new( [ $ENGINE ] )
+=head2 $obj = I<CLASS>->new( %OPTS )
 
-Instantiates this class. $ENGINE is optional.
+Instantiates this class, which wraps Wasmer `wasm_engine_t` and
+`wasm_store_t` instances.
+
+This accepts the arguments that in C would go into the `wasm_config_t`.
+Currently that includes:
+
+=over
+
+=item * C<compiler> - C<cranelift>, C<llvm>, or C<singlepass>
+
+=item * C<engine> - C<universal>, C<dylib>
+
+=back
 
 =head2 $yn = I<OBJ>->validate_module( $WASM_BYTES )
 

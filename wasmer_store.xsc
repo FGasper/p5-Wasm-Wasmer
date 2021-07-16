@@ -12,22 +12,15 @@ typedef struct {
 
     pid_t pid;
 
-    SV* engine_sv;
+    wasm_engine_t* engine;
 } store_holder_t;
 
-SV* create_store_sv (pTHX_ SV* class_sv, SV* engine_sv) {
+SV* create_store_sv (pTHX_ SV* class_sv, SV** args, unsigned argscount) {
     const char* class = class_sv ? SvPVbyte_nolen(class_sv) : P5_WASM_WASMER_STORE_CLASS;
 
-    if (engine_sv == NULL) {
-        engine_sv = create_engine_sv(aTHX_ NULL, NULL, 0);
-    }
-    else {
-        SvREFCNT_inc(engine_sv);
-    }
+    wasm_engine_t* engine = create_engine(aTHX_ args, argscount);
 
-    engine_holder_t* engine_holder_p = svrv_to_ptr(aTHX_ engine_sv);
-
-    wasm_store_t* store = wasm_store_new(engine_holder_p->engine);
+    wasm_store_t* store = wasm_store_new(engine);
 
     store_holder_t* store_holder_p;
 
@@ -35,7 +28,7 @@ SV* create_store_sv (pTHX_ SV* class_sv, SV* engine_sv) {
 
     store_holder_p->store = store;
     store_holder_p->pid = getpid();
-    store_holder_p->engine_sv = engine_sv;
+    store_holder_p->engine = engine;
 
     return ptr_to_svrv(aTHX_ store_holder_p, gv_stashpv(class, FALSE));
 }
@@ -47,7 +40,7 @@ void destroy_store_sv (pTHX_ SV* store_sv) {
 
     wasm_store_delete(store_holder_p->store);
 
-    SvREFCNT_dec(store_holder_p->engine_sv);
+    wasm_engine_delete(store_holder_p->engine);
 
     Safefree(store_holder_p);
 }

@@ -236,7 +236,7 @@ wat2wasm ( SV* wat_sv )
 
 # ----------------------------------------------------------------------
 
-MODULE = Wasm::Wasmer     PACKAGE = Wasm::Wasmer::Engine
+MODULE = Wasm::Wasmer     PACKAGE = Wasm::Wasmer::Store
 
 PROTOTYPES: DISABLE
 
@@ -245,30 +245,13 @@ new (SV* class_sv, ...)
     CODE:
         if (!SvPOK(class_sv)) croak("Give a class name!");
 
-        RETVAL = create_engine_sv(aTHX_ class_sv, &ST(1), items - 1);
+        unsigned argscount = items - 1;
 
-    OUTPUT:
-        RETVAL
+        if (argscount % 2) {
+            croak("%" SVf "::new: Uneven args list!", class_sv);
+        }
 
-void
-DESTROY (SV* self_sv)
-    CODE:
-        destroy_engine_sv(aTHX_ self_sv);
-
-# ----------------------------------------------------------------------
-
-MODULE = Wasm::Wasmer     PACKAGE = Wasm::Wasmer::Store
-
-PROTOTYPES: DISABLE
-
-SV*
-new (SV* class_sv, SV* engine_sv=NULL)
-    CODE:
-        croak_if_non_null_not_derived(aTHX_ engine_sv, P5_WASM_WASMER_ENGINE_CLASS);
-
-        if (!SvPOK(class_sv)) croak("Give a class name!");
-
-        RETVAL = create_store_sv(aTHX_ class_sv, engine_sv);
+        RETVAL = create_store_sv(aTHX_ class_sv, &ST(1), argscount);
 
     OUTPUT:
         RETVAL
@@ -336,7 +319,7 @@ deserialize (SV* bytes_sv, SV* store_sv=NULL)
             SvREFCNT_inc(store_sv);
         }
         else {
-            store_sv = create_store_sv(aTHX_ NULL, NULL);
+            store_sv = create_store_sv(aTHX_ NULL, NULL, 0);
         }
 
         store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ store_sv);
@@ -367,7 +350,7 @@ validate (SV* wasm_sv, SV* store_sv_in=NULL)
             store_sv = store_sv_in;
         }
         else {
-            store_sv = create_store_sv(aTHX_ NULL, NULL);
+            store_sv = create_store_sv(aTHX_ NULL, NULL, 0);
             sv_2mortal(store_sv);
         }
 

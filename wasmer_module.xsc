@@ -39,7 +39,7 @@ SV* create_module_sv (pTHX_ SV* class_sv, SV* wasm_sv, SV* store_sv) {
     const char* wasm_bytes = SvPVbyte(wasm_sv, wasm_len);
 
     if (store_sv == NULL) {
-        store_sv = create_store_sv(aTHX_ NULL, NULL);
+        store_sv = create_store_sv(aTHX_ NULL, NULL, 0);
     }
     else {
         SvREFCNT_inc(store_sv);
