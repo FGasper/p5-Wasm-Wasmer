@@ -60,6 +60,10 @@ Example usage:
             env => {
                 abort => sub { die "@_" },
             },
+
+            custom => {
+                myglobal => \234,
+            },
         },
     );
 

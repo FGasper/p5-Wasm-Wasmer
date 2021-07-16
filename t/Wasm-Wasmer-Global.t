@@ -24,7 +24,7 @@ END
 __PACKAGE__->new()->runtests() if !caller;
 
 sub test_globals : Tests(4) {
-    my $wasm = Wasm::Wasmer::wat2wasm(_WAT) or die 'bad wat';
+    my $wasm = Wasm::Wasmer::wat2wasm(_WAT);
 
     my @globals = do {
         my $module = Wasm::Wasmer::Module->new($wasm);

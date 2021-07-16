@@ -88,23 +88,21 @@ unsigned _call_wasm( pTHX_ SV** SP, wasm_func_t* function, wasm_exporttype_t* ex
     wasm_val_t wasm_param[given_args_count];
 
     for (unsigned i=0; i<given_args_count; i++) {
-        wasm_param[i].kind = param_kind[i];
-
         switch (param_kind[i]) {
             case WASM_I32:
-                wasm_param[i].of.i32 = grok_i32( given_arg[i] );
+                wasm_param[i] = (wasm_val_t) WASM_I32_VAL( grok_i32( given_arg[i] ) );
                 break;
 
             case WASM_I64:
-                wasm_param[i].of.i64 = grok_i64( given_arg[i] );
+                wasm_param[i] = (wasm_val_t) WASM_I64_VAL( grok_i64( given_arg[i] ) );
                 break;
 
             case WASM_F32:
-                wasm_param[i].of.f32 = SvNV( given_arg[i] );
+                wasm_param[i] = (wasm_val_t) WASM_F32_VAL( SvNV( given_arg[i] ) );
                 break;
 
             case WASM_F64:
-                wasm_param[i].of.f64 = SvNV( given_arg[i] );
+                wasm_param[i] = (wasm_val_t) WASM_F64_VAL( SvNV( given_arg[i] ) );
                 break;
 
             default:

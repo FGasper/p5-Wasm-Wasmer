@@ -33,13 +33,18 @@ static wasm_func_t* _get_instance_function(pTHX_ instance_holder_t* instance_hol
     wasm_extern_vec_t* exports = &instance_holder_p->exports;
 
     for (unsigned i = 0; i<exports->size; i++) {
-        if (wasm_extern_kind(exports->data[i]) != WASM_EXTERN_FUNC)
-            continue;
-
         const wasm_name_t* name = wasm_exporttype_name(export_types->data[i]);
 
         if (funcname_len != name->size) continue;
         if (!memEQ(name->data, funcname, funcname_len)) continue;
+
+        if (wasm_extern_kind(exports->data[i]) != WASM_EXTERN_FUNC) {
+            croak(
+                "“%.*s” is a %s, not a function!",
+                (int)funcname_len, funcname,
+                get_externkind_description( wasm_extern_kind(exports->data[i]) )
+            );
+        }
 
         /* Yay! We found our function. */
 

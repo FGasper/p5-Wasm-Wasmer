@@ -21,9 +21,9 @@ static inline SV* global_sv_name_sv (pTHX_ SV* self_sv) {
 }
 
 wasm_mutability_t _get_mutability (global_holder_t* global_holder_p) {
-    wasm_externtype_t* type = wasm_exporttype_type(global_holder_p->export_type);
+    const wasm_externtype_t* type = wasm_exporttype_type(global_holder_p->export_type);
 
-    wasm_globaltype_t* gtype = wasm_externtype_as_globaltype(type);
+    const wasm_globaltype_t* gtype = wasm_externtype_as_globaltype_const(type);
 
     return wasm_globaltype_mutability(gtype);
 }
@@ -74,7 +74,7 @@ static inline void global_sv_set_sv (pTHX_ SV* self_sv, SV* newval) {
     if (_get_mutability(global_holder_p) != WASM_VAR) {
         const wasm_name_t* name = wasm_exporttype_name(global_holder_p->export_type);
 
-        croak("Global “%.*s” is immutable; cannot update!", name->size, name->data);
+        croak("Global “%.*s” is immutable; cannot update!", (int) name->size, name->data);
     }
 
     wasm_global_t* global = global_holder_p->global;

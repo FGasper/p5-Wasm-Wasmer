@@ -10,6 +10,30 @@
     ); \
 } STMT_END
 
+typedef struct {
+    enum wasm_externkind_enum kind;
+    const char* description;
+} my_export_description_t;
+
+static my_export_description_t export_descriptions[] = {
+    { .kind = WASM_EXTERN_FUNC, .description = "function" },
+    { .kind = WASM_EXTERN_GLOBAL, .description = "global" },
+    { .kind = WASM_EXTERN_MEMORY, .description = "memory" },
+    { .kind = WASM_EXTERN_TABLE, .description = "table" },
+};
+
+static inline const char* get_externkind_description(enum wasm_externkind_enum kind) {
+    unsigned total = sizeof(export_descriptions) / sizeof(my_export_description_t);
+    for (unsigned t=0; t<total; t++) {
+        if (kind == export_descriptions[t].kind) {
+            return export_descriptions[t].description;
+        }
+    }
+
+    assert(0 && "No description for extern type?!?");
+    return NULL;    // silence compiler warning
+}
+
 static inline SV* ptr_to_svrv (pTHX_ void* ptr, HV* stash) {
     SV* referent = newSVuv( PTR2UV(ptr) );
     SV* retval = newRV_noinc(referent);
