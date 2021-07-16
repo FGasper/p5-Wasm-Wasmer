@@ -27,6 +27,8 @@ Wasm::Wasmer::Module
 
     my $instance = $module->create_wasi_instance($wasi);
 
+You can also specify imports; see below.
+
 =head1 DESCRIPTION
 
 This class represents a parsed WebAssembly module.
@@ -50,25 +52,29 @@ L<Wasm::Wasmer::Store> instance.
 Creates a L<Wasm::Wasmer::Instance> instance from I<OBJ> with the
 (optional) given %IMPORTS. (NB: %IMPORTS is given via I<reference>.)
 
-%IMPORTS is an optional hash-of-hashrefs that indicates namespace and name of
-each import.
+%IMPORTS is an optional hash-of-hashrefs that describes the set of
+imports to give to the new instance.
 
-Example usage:
+Here’s a simple example that gives a function C<ns>.C<give2> to WebAssembly
+that just returns the number 2:
 
     my $instance = $module->create_instance(
         {
-            env => {
-                abort => sub { die "@_" },
-            },
-
-            custom => {
-                myglobal => \234,
+            ns => {
+                give2 => sub { 2 },
             },
         },
     );
 
-For now this interface supports function imports only. Other import types can
-be added as needed.
+Other import types are rather more complex because they’re interactive;
+thus, you have to create them:
+
+    my $const = $module->create_global( i32 => 42 );
+    my $var = $module->create_global( i32 => 42, Wasm::Wasmer::WASM_VAR );
+
+    my $memory = $module->create_memory( min => 3, max => 5 );
+
+(Tables are currently unsupported.)
 
 =head2 $instance = I<OBJ>->create_wasi_instance( $WASI, [ \%IMPORTS ] )
 

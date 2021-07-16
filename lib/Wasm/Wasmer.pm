@@ -41,13 +41,10 @@ yielding a simple, fast way to run WebAssembly (WASM) in Perl.
 We mostly follow the relationships from
 L<Wasmer’s C API|https://docs.rs/wasmer-c-api>:
 
-=head2 * A L<Wasm::Wasmer::Engine> instance is the first thing needed
-to run some WASM code. In Perl we auto-create that object by default,
-though, so you may not need to worry about this one.
-
-=head2 * L<Wasm::Wasmer::Store> uses a L<Wasm::Wasmer::Engine> object
-(auto-created by default) to provide backend storage for Wasmer. This
-object is also auto-created by default.
+=head2 * L<Wasm::Wasmer::Store> manages Wasmer’s global state.
+It contains compiler & engine configuration as well. This
+object is also auto-created by default, so you may not need to
+worry about this one.
 
 =head2 * L<Wasm::Wasmer::Module> uses a L<Wasm::Wasmer::Store> object
 to represent a parsed WASM module. (This one you have to instantiate

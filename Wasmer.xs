@@ -31,9 +31,9 @@
 #include "wasmer_wasi.xsc"
 
 #define WASI_CLASS "Wasm::Wasmer::WASI"
-#define MEMORY_CLASS "Wasm::Wasmer::Memory"
-#define GLOBAL_CLASS "Wasm::Wasmer::Global"
-#define FUNCTION_CLASS "Wasm::Wasmer::Function"
+#define EXP_MEMORY_CLASS "Wasm::Wasmer::Export::Memory"
+#define EXP_GLOBAL_CLASS "Wasm::Wasmer::Export::Global"
+#define EXP_FUNCTION_CLASS "Wasm::Wasmer::Export::Function"
 
 #define _ptr_to_svrv ptr_to_svrv
 
@@ -461,7 +461,7 @@ export_memories (SV* self_sv)
 
             possible_memory_sv[return_count] = _ptr_to_svrv( aTHX_
                 memory_holder,
-                gv_stashpv(MEMORY_CLASS, FALSE)
+                gv_stashpv(EXP_MEMORY_CLASS, FALSE)
             );
 
             return_count++;
@@ -516,7 +516,7 @@ export_globals (SV* self_sv)
 
             possible_global_sv[return_count] = _ptr_to_svrv( aTHX_
                 global_holder,
-                gv_stashpv(GLOBAL_CLASS, FALSE)
+                gv_stashpv(EXP_GLOBAL_CLASS, FALSE)
             );
 
             return_count++;
@@ -571,7 +571,7 @@ export_functions (SV* self_sv)
 
             possible_function_sv[return_count] = _ptr_to_svrv( aTHX_
                 function_holder,
-                gv_stashpv(FUNCTION_CLASS, FALSE)
+                gv_stashpv(EXP_FUNCTION_CLASS, FALSE)
             );
 
             return_count++;
@@ -620,7 +620,7 @@ DESTROY (SV* self_sv)
 
 # ----------------------------------------------------------------------
 
-MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Global
+MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Export::Global
 
 SV*
 name (SV* self_sv)
@@ -665,7 +665,7 @@ DESTROY (SV* self_sv)
 
 # ----------------------------------------------------------------------
 
-MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Memory
+MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Export::Memory
 
 SV*
 name (SV* self_sv)
@@ -698,7 +698,7 @@ DESTROY (SV* self_sv)
 
 # ----------------------------------------------------------------------
 
-MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Function
+MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Export::Function
 
 void
 DESTROY (SV* self_sv)

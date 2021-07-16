@@ -13,14 +13,13 @@ use parent 'Test::Class';
 
 use Wasm::Wasmer;
 use Wasm::Wasmer::Store;
-use Wasm::Wasmer::Engine;
 
 __PACKAGE__->new()->runtests() if !caller;
 
 sub test_new : Tests(4) {
     isa_ok(
         Wasm::Wasmer::Store->new(),
-        [ 'Wasm::Wasmer::Store' ],
+        ['Wasm::Wasmer::Store'],
         'plain new()'
     );
 
@@ -28,7 +27,7 @@ sub test_new : Tests(4) {
 
     is(
         $err,
-        match( qr<foo> ),
+        match(qr<foo>),
         'fail on unrecognized parameter',
     );
 
@@ -36,8 +35,8 @@ sub test_new : Tests(4) {
     is(
         $err,
         check_set(
-            match( qr<compiler> ),
-            match( qr<123> ),
+            match(qr<compiler>),
+            match(qr<123>),
         ),
         'fail on bad “compiler” value',
     );
@@ -46,8 +45,8 @@ sub test_new : Tests(4) {
     is(
         $err,
         check_set(
-            match( qr<engine> ),
-            match( qr<123> ),
+            match(qr<engine>),
+            match(qr<123>),
         ),
         'fail on bad “engine” value',
     );

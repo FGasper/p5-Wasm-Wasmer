@@ -27,7 +27,7 @@ sub test_globals : Tests(4) {
     my $wasm = Wasm::Wasmer::wat2wasm(_WAT);
 
     my @globals = do {
-        my $module = Wasm::Wasmer::Module->new($wasm);
+        my $module   = Wasm::Wasmer::Module->new($wasm);
         my $instance = $module->create_instance();
 
         $instance->export_globals();
@@ -37,30 +37,30 @@ sub test_globals : Tests(4) {
         \@globals,
         [
             object {
-                prop blessed => 'Wasm::Wasmer::Global';
-                call name => 'constGlobal';
+                prop blessed    => 'Wasm::Wasmer::Export::Global';
+                call name       => 'constGlobal';
                 call mutability => Wasm::Wasmer::WASM_CONST;
-                call get => 42;
+                call get        => 42;
             },
             object {
-                prop blessed => 'Wasm::Wasmer::Global';
-                call name => 'mutGlobal';
+                prop blessed    => 'Wasm::Wasmer::Export::Global';
+                call name       => 'mutGlobal';
                 call mutability => Wasm::Wasmer::WASM_VAR;
-                call get => 24;
+                call get        => 24;
             },
         ],
         'export_globals() outputs expected objects',
     );
 
     my $got = $globals[1]->set(244);
-    is($got, $globals[1], 'set() returns $self');
-    is( $globals[1]->get(), 244, 'set() updates the value' );
+    is( $got,               $globals[1], 'set() returns $self' );
+    is( $globals[1]->get(), 244,         'set() updates the value' );
 
     my $err = dies { $globals[0]->set(233) };
 
     is(
         $err,
-        match( qr<constGlobal> ),
+        match(qr<constGlobal>),
         'error on set() of a constant',
     );
 
