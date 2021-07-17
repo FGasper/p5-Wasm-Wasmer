@@ -103,4 +103,6 @@ rather than WASM code.
 
 =cut
 
+use Wasm::Wasmer;
+
 1;
