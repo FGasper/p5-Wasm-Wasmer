@@ -51,9 +51,9 @@ use constant _WAT_IMPORTS => <<'END';
     ;; (import "my" "memory" (memory $m 1))
 
     ;; function import:
-    (import "my" "func" (func $mf (param i32 i32)))
+    (import "my" "func" (func $mf (param i32 i32) (result i32 i32)))
 
-    (func (export "callfunc")
+    (func (export "callfunc") (result i32 i32)
         i32.const 0  ;; pass offset 0 to log
         i32.const 2  ;; pass length 2 to log
         call $mf
@@ -63,7 +63,7 @@ END
 
 __PACKAGE__->new()->runtests() if !caller;
 
-sub test_func_import : Tests(1) {
+sub test_func_import : Tests(2) {
     my $ok_wat = _WAT_IMPORTS;
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
 
@@ -72,14 +72,15 @@ sub test_func_import : Tests(1) {
     my $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_instance(
         {
             my => {
-                func => sub { @cb_inputs = @_; return },
+                func => sub { @cb_inputs = @_; return (22, 33) },
             },
         },
     );
 
-    ($instance->export_functions())[0]->call();
+    my @got = ($instance->export_functions())[0]->call();
 
     is( \@cb_inputs, [0, 2], 'callback called');
+    is( \@got, [22, 33], 'values from callback passed' );
 
     return;
 }
