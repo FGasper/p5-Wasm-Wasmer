@@ -99,6 +99,18 @@ void _croak_if_trap (pTHX_ wasm_trap_t* trap) {
     }
 }
 
+static inline UV grok_uv (pTHX_ SV* sv) {
+    if (SvUOK(sv)) return SvUV(sv);
+
+    UV myuv = SvUV(sv);
+
+    SV* sv2 = newSVuv(myuv);
+
+    if (sv_eq(sv, sv2)) return myuv;
+
+    croak("`%" SVf "` given where unsigned integer expected!", sv);
+}
+
 // This really ought to be in Perl’s API, or some standard XS toolkit …
 static inline IV grok_iv (pTHX_ SV* sv) {
     if (SvIOK_notUV(sv)) return SvIV(sv);

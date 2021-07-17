@@ -686,18 +686,80 @@ name (SV* self_sv)
     OUTPUT:
         RETVAL
 
-UV
-data (SV* self_sv)
+#define CROAK_MEMORY_STR_EXCESS(offset, len, buflen) \
+    croak( \
+        "offset %" IVdf " + length %" UVuf " = %" UVuf " (exceeds size=%" IVdf ")", \
+        offset, len, offset + len, buflen \
+    )
+
+void
+set (SV* self_sv, SV* replacement_sv, SV* offset_sv=NULL)
     CODE:
-        RETVAL = memory_sv_data_uv(aTHX_ self_sv);
+        STRLEN replen;
+        char *replacement = SvPVbyte(replacement_sv, replen);
+
+        UV buflen = memory_sv_data_size(self_sv);
+
+        IV offset = offset_sv ? grok_iv(aTHX_ offset_sv) : 0;
+
+        if (offset < 0) {
+            offset += buflen;
+        }
+
+        IV end_offset = offset + replen;
+
+        if (end_offset > buflen) {
+            CROAK_MEMORY_STR_EXCESS(offset, replen, buflen);
+        }
+
+        char *buf = memory_sv_data(aTHX_ self_sv);
+
+        Copy(replacement, buf + offset, replen, void);
+
+SV*
+substr (SV* self_sv, SV* offset_sv=NULL, SV* length_sv=NULL)
+    CODE:
+        if (GIMME_V == G_VOID) {
+            croak("substr is useless in void context!");
+        }
+
+        char *buf = memory_sv_data(aTHX_ self_sv);
+
+        UV buflen = memory_sv_data_size(self_sv);
+
+        if (offset_sv) {
+            IV offset = grok_iv(aTHX_ offset_sv);
+
+            if (offset < 0) {
+                offset += buflen;
+            }
+
+            if (length_sv) {
+                UV len = grok_uv(aTHX_ length_sv);
+
+                UV end_offset = offset + len;
+
+                if (end_offset > buflen) {
+                    CROAK_MEMORY_STR_EXCESS(offset, len, buflen);
+                }
+
+                RETVAL = newSVpvn(buf + offset, len);
+            }
+            else {
+                RETVAL = newSVpvn(buf + offset, buflen - offset);
+            }
+        }
+        else {
+            RETVAL = newSVpvn(buf, buflen);
+        }
 
     OUTPUT:
         RETVAL
 
-IV
+UV
 data_size (SV* self_sv)
     CODE:
-        RETVAL = memory_sv_data_size_iv(aTHX_ self_sv);
+        RETVAL = memory_sv_data_size(aTHX_ self_sv);
 
     OUTPUT:
         RETVAL

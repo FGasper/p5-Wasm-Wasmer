@@ -16,12 +16,19 @@ use Wasm::Wasmer::Module;
 
 use constant _WAT => <<'END';
 (module
+
+  ;; function export:
   (func $add (param $lhs i32) (param $rhs i32) (result i32)
     local.get $lhs
     local.get $rhs
     i32.add
   )
   (export "add" (func $add))
+
+  ;; memory export:
+  (memory $0 1)
+  (data (i32.const 0) "Hello World!\00")
+  (export "pagememory" (memory $0))
 )
 END
 
@@ -43,6 +50,44 @@ sub test_func_export_add : Tests(1) {
             },
         ],
         'export_functions()',
+    );
+
+    return;
+}
+
+sub test_memory_export : Tests(2) {
+    my $ok_wat = _WAT;
+    my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
+
+    my $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_instance();
+
+    is(
+        [ $instance->export_memories() ],
+        [
+            object {
+                prop blessed => 'Wasm::Wasmer::Export::Memory';
+                call name => 'pagememory';
+                call data_size => 2**16;
+                call [ substr => () ], "Hello World!" . ("\0" x 65524);
+                call [ substr => 0, 12 ] => "Hello World!";
+                call [ substr => 6, 12 ] => "World!\0\0\0\0\0\0";
+                call_list [ set => 'Harry', 6 ] => [];
+            },
+        ],
+        'export_memories()',
+    );
+
+    is(
+        [ $instance->export_memories() ],
+        [
+            object {
+                call [ substr => 0, 13 ] => "Hello Harry!\0";
+                call_list [ set => 'Sally', 6 ] => [];
+                call [ substr => 0, 13 ] => "Hello Sally!\0";
+
+            },
+        ],
+        'export_memories() - redux',
     );
 
     return;
