@@ -17,31 +17,72 @@ use Wasm::Wasmer::Module;
 use constant _WAT => <<'END';
 (module
 
-  ;; function export:
-  (func (export "add") (param $lhs i32) (param $rhs i32) (result i32)
-    local.get $lhs
-    local.get $rhs
-    i32.add
-  )
+    ;; function export:
+    (func (export "add") (param $lhs i32) (param $rhs i32) (result i32)
+        local.get $lhs
+        local.get $rhs
+        i32.add
+    )
 
-  ;; memory export:
-  (memory (export "pagememory") 1)
-  (data (i32.const 0) "Hello World!\00")
+    ;; memory export:
+    (memory (export "pagememory") 1)
+    (data (i32.const 0) "Hello World!\00")
 
-  ;; mutable global export:
-  (global $gg (mut i32) (i32.const 123))
-  (export "varglobal" (global $gg))
+    ;; mutable global export:
+    (global $gg (mut i32) (i32.const 123))
+    (export "varglobal" (global $gg))
 
-  (func (export "tellvarglobal") (result i32)
-    global.get $gg
-  )
+    (func (export "tellvarglobal") (result i32)
+        global.get $gg
+    )
 
-  ;; constant global export:
-  (global (export "constglobal") i32 (i32.const 333))
+    ;; constant global export:
+    (global (export "constglobal") i32 (i32.const 333))
+)
+END
+
+use constant _WAT_IMPORTS => <<'END';
+(module
+
+    ;; global import:
+    ;; (import "my" "global" (global $g (mut i32)))
+
+    ;; memory import:
+    ;; (import "my" "memory" (memory $m 1))
+
+    ;; function import:
+    (import "my" "func" (func $mf (param i32 i32)))
+
+    (func (export "callfunc")
+        i32.const 0  ;; pass offset 0 to log
+        i32.const 2  ;; pass length 2 to log
+        call $mf
+    )
 )
 END
 
 __PACKAGE__->new()->runtests() if !caller;
+
+sub test_func_import : Tests(1) {
+    my $ok_wat = _WAT_IMPORTS;
+    my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
+
+    my @cb_inputs;
+
+    my $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_instance(
+        {
+            my => {
+                func => sub { @cb_inputs = @_; return },
+            },
+        },
+    );
+
+    ($instance->export_functions())[0]->call();
+
+    is( \@cb_inputs, [0, 2], 'callback called');
+
+    return;
+}
 
 sub test_func_export_add : Tests(1) {
     my $ok_wat = _WAT;

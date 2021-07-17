@@ -25,7 +25,7 @@ typedef struct {
 
 /* ---------------------------------------------------------------------- */
 
-static wasm_func_t* _get_instance_function(pTHX_ instance_holder_t* instance_holder_p, const char* funcname, STRLEN funcname_len, wasm_exporttype_t** export_type_p) {
+static wasm_extern_t* _get_instance_export(pTHX_ instance_holder_t* instance_holder_p, const char* name, STRLEN name_len, wasm_exporttype_t** export_type_pp) {
     module_holder_t* module_holder_p = svrv_to_ptr(aTHX_ instance_holder_p->module_sv);
 
     wasm_exporttype_vec_t* export_types = &module_holder_p->export_types;
@@ -38,18 +38,31 @@ static wasm_func_t* _get_instance_function(pTHX_ instance_holder_t* instance_hol
         if (funcname_len != name->size) continue;
         if (!memEQ(name->data, funcname, funcname_len)) continue;
 
-        if (wasm_extern_kind(exports->data[i]) != WASM_EXTERN_FUNC) {
+        /* Yay! We found our function. */
+
+        *export_type_pp = export_types->data[i];
+        return wasm_extern_as_func(exports->data[i]);
+    }
+
+    return NULL;
+}
+
+static wasm_func_t* _get_instance_function(pTHX_ instance_holder_t* instance_holder_p, const char* funcname, STRLEN funcname_len, wasm_exporttype_t** export_type_pp) {
+
+    wasm_extern_t* export = _get_instance_export(instance_holder_p, funcname, funcname_len, export_type_pp);
+
+    if (export) {
+        if (wasm_extern_kind(export) != WASM_EXTERN_FUNC) {
             croak(
                 "“%.*s” is a %s, not a function!",
                 (int)funcname_len, funcname,
-                get_externkind_description( wasm_extern_kind(exports->data[i]) )
+                get_externkind_description( wasm_extern_kind(export) )
             );
         }
 
         /* Yay! We found our function. */
 
-        *export_type_p = export_types->data[i];
-        return wasm_extern_as_func(exports->data[i]);
+        return wasm_extern_as_func(export);
     }
 
     return NULL;
