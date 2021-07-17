@@ -18,21 +18,26 @@ use constant _WAT => <<'END';
 (module
 
   ;; function export:
-  (func $add (param $lhs i32) (param $rhs i32) (result i32)
+  (func (export "add") (param $lhs i32) (param $rhs i32) (result i32)
     local.get $lhs
     local.get $rhs
     i32.add
   )
-  (export "add" (func $add))
 
   ;; memory export:
-  (memory $0 1)
+  (memory (export "pagememory") 1)
   (data (i32.const 0) "Hello World!\00")
-  (export "pagememory" (memory $0))
 
-  ;; global export:
-  (global $g (mut i32) (i32.const 123))
-  (export "myglobal" (global $g))
+  ;; mutable global export:
+  (global $gg (mut i32) (i32.const 123))
+  (export "varglobal" (global $gg))
+
+  (func (export "tellvarglobal") (result i32)
+    global.get $gg
+  )
+
+  ;; constant global export:
+  (global (export "constglobal") i32 (i32.const 333))
 )
 END
 
@@ -52,6 +57,10 @@ sub test_func_export_add : Tests(1) {
                 call name => 'add';
                 call [ call => 22, 33 ] => 55;
             },
+            object {
+                prop blessed => 'Wasm::Wasmer::Export::Function';
+                call name => 'tellvarglobal';
+            },
         ],
         'export_functions()',
     );
@@ -59,25 +68,36 @@ sub test_func_export_add : Tests(1) {
     return;
 }
 
-sub test_global_export : Tests(4) {
+sub test_global_export : Tests(7) {
     my $ok_wat = _WAT;
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
 
     my $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_instance();
+
+    my ($tellvarglobal_f) = grep { $_->name() eq 'tellvarglobal' } $instance->export_functions();
 
     is(
         [ $instance->export_globals() ],
         [
             object {
                 prop blessed => 'Wasm::Wasmer::Export::Global';
-                call name => 'myglobal';
+                call name => 'varglobal';
                 call get => 123;
+                call mutability => Wasm::Wasmer::WASM_VAR;
+            },
+            object {
+                prop blessed => 'Wasm::Wasmer::Export::Global';
+                call name => 'constglobal';
+                call get => 333;
+                call mutability => Wasm::Wasmer::WASM_CONST;
             },
         ],
         'export_globals()',
     );
 
-    my ($global) = ($instance->export_globals())[0];
+    is( $tellvarglobal_f->call(), 123, 'tellvarglobal - initial' );
+
+    my ($global, $constglobal) = $instance->export_globals();
 
     is(
         $global->set(234),
@@ -87,13 +107,19 @@ sub test_global_export : Tests(4) {
 
     is($global->get(), 234, 'set() did its thing');
 
+    is( $tellvarglobal_f->call(), 234, 'tellvarglobal - after set()' );
+
+    my $err = dies { $constglobal->set(11) };
+    is( $err, match( qr<global> ), 'error on set of constant global' );
+
     is(
         [ $instance->export_globals() ],
-        [
-            object {
+        array {
+            item object {
                 call get => 234;
-            },
-        ],
+            };
+            etc();
+        },
         'set() did its thing (new export_globals())',
     );
 

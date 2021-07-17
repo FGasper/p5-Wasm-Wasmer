@@ -144,12 +144,6 @@ static inline SV* global_export_sv_get_sv (pTHX_ SV* self_sv) {
 static inline void global_export_sv_set_sv (pTHX_ SV* self_sv, SV* newval) {
     global_export_holder_t* global_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
-    if (_get_export_mutability(global_holder_p) != WASM_VAR) {
-        const wasm_name_t* name = wasm_exporttype_name(global_holder_p->export_type);
-
-        croak("Global “%.*s” is immutable; cannot update!", (int) name->size, name->data);
-    }
-
     wasm_global_t* global = global_holder_p->global;
 
     wasm_val_t val;
@@ -180,6 +174,8 @@ static inline void global_export_sv_set_sv (pTHX_ SV* self_sv, SV* newval) {
     }
 
     wasm_global_set(global, &val);
+
+    _croak_if_wasmer_error(aTHX);
 }
 
 static inline void destroy_export_global_sv (pTHX_ SV* self_sv) {
