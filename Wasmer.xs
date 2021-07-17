@@ -418,6 +418,13 @@ create_wasi_instance (SV* self_sv, SV* wasi_sv=NULL, SV* imports_sv=NULL)
     OUTPUT:
         RETVAL
 
+#SV* create_global (SV* self_sv, SV* value)
+#    CODE:
+#        
+#
+#    OUTPUT:
+#        RETVAL
+
 # ----------------------------------------------------------------------
 
 MODULE = Wasm::Wasmer     PACKAGE = Wasm::Wasmer::Instance
@@ -502,8 +509,8 @@ export_globals (SV* self_sv)
             if (wasm_extern_kind(exports->data[i]) != WASM_EXTERN_GLOBAL)
                 continue;
 
-            global_holder_t* global_holder;
-            Newx(global_holder, 1, global_holder_t);
+            global_export_holder_t* global_holder;
+            Newx(global_holder, 1, global_export_holder_t);
 
             wasm_global_t* global = wasm_extern_as_global(exports->data[i]);
 
@@ -620,12 +627,16 @@ DESTROY (SV* self_sv)
 
 # ----------------------------------------------------------------------
 
+MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Global
+
+# ----------------------------------------------------------------------
+
 MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Export::Global
 
 SV*
 name (SV* self_sv)
     CODE:
-        RETVAL = global_sv_name_sv(aTHX_ self_sv);
+        RETVAL = global_export_sv_name_sv(aTHX_ self_sv);
 
     OUTPUT:
         RETVAL
@@ -633,7 +644,7 @@ name (SV* self_sv)
 SV*
 mutability (SV* self_sv)
     CODE:
-        RETVAL = global_sv_mutability_sv(aTHX_ self_sv);
+        RETVAL = global_export_sv_mutability_sv(aTHX_ self_sv);
 
     OUTPUT:
         RETVAL
@@ -641,7 +652,7 @@ mutability (SV* self_sv)
 SV*
 get (SV* self_sv)
     CODE:
-        RETVAL = global_sv_get_sv(aTHX_ self_sv);
+        RETVAL = global_export_sv_get_sv(aTHX_ self_sv);
 
     OUTPUT:
         RETVAL
@@ -649,7 +660,7 @@ get (SV* self_sv)
 SV*
 set (SV* self_sv, SV* newval)
     CODE:
-        global_sv_set_sv(aTHX_ self_sv, newval);
+        global_export_sv_set_sv(aTHX_ self_sv, newval);
 
         SvREFCNT_inc(self_sv);
 
@@ -661,7 +672,7 @@ set (SV* self_sv, SV* newval)
 void
 DESTROY (SV* self_sv)
     CODE:
-        destroy_global_sv(aTHX_ self_sv);
+        destroy_export_global_sv(aTHX_ self_sv);
 
 # ----------------------------------------------------------------------
 

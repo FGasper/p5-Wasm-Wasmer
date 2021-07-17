@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-package t::Wasm::Wasmer::Module;
+package t::Wasm::Wasmer::Export::Global;
 
 use strict;
 use warnings;

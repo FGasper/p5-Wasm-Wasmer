@@ -14,6 +14,7 @@ typedef struct {
     pid_t pid;
 
     wasm_exporttype_vec_t export_types;
+    wasm_importtype_vec_t import_types;
 } module_holder_t;
 
 #define get_store_sv_from_module_holder(holder) (holder->store_sv)
@@ -28,6 +29,7 @@ SV* module_to_sv (pTHX_ wasm_module_t* module, SV* store_sv, const char* class) 
     module_holder_p->store_sv = store_sv;
 
     wasm_module_exports(module, &module_holder_p->export_types);
+    wasm_module_imports(module, &module_holder_p->import_types);
 
     return ptr_to_svrv(aTHX_ module_holder_p, gv_stashpv(class, FALSE));
 }
@@ -67,8 +69,10 @@ void destroy_module_sv (pTHX_ SV* self_sv) {
 
     warn_destruct_if_needed(self_sv, module_holder_p->pid);
 
-    wasm_module_delete(module_holder_p->module);
     wasm_exporttype_vec_delete(&module_holder_p->export_types);
+    wasm_importtype_vec_delete(&module_holder_p->import_types);
+
+    wasm_module_delete(module_holder_p->module);
 
     SvREFCNT_dec(module_holder_p->store_sv);
 

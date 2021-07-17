@@ -63,7 +63,7 @@ static inline HV* get_hv_from_sv_or_croak (pTHX_ SV* sv, const char* description
     return (HV *) SvRV(sv);
 }
 
-static CV* _get_import_coderef( pTHX_ HV* imports_hv, const wasm_name_t* modname, const wasm_name_t* funcname, bool is_needed ) {
+static inline SV* _get_import_sv( pTHX_ HV* imports_hv, const wasm_name_t* modname, const wasm_name_t* funcname, bool is_needed ) {
     SV** ns_hr_p = hv_fetch(imports_hv, modname->data, modname->size, 0);
     if (!ns_hr_p) {
         if (is_needed) {
@@ -86,7 +86,7 @@ static CV* _get_import_coderef( pTHX_ HV* imports_hv, const wasm_name_t* modname
     HV* ns_hv = (HV*) SvRV(*ns_hr_p);
     SV** import_val_p = hv_fetch(ns_hv, funcname->data, funcname->size, 0);
 
-    if (!import_val_p) {
+    if (import_val_p == NULL) {
         if (is_needed) {
             croak("Required import “%.*s.%.*s” not given!", (int) modname->size, modname->data, (int) funcname->size, funcname->data);
         }
@@ -95,16 +95,24 @@ static CV* _get_import_coderef( pTHX_ HV* imports_hv, const wasm_name_t* modname
         }
     }
 
-    if (!SvROK(*import_val_p) || SVt_PVCV != SvTYPE(SvRV(*import_val_p))) {
-        if (is_needed) {
-            croak("Import “%.*s.%.*s” must be a CODE reference, not `%" SVf "`!", (int) modname->size, modname->data, (int) funcname->size, funcname->data, *import_val_p);
-        }
-        else {
-            return NULL;
+    return *import_val_p;
+}
+
+static CV* _get_import_coderef( pTHX_ HV* imports_hv, const wasm_name_t* modname, const wasm_name_t* funcname, bool is_needed ) {
+    SV* import_sv = _get_import_sv(aTHX_ imports_hv, modname, funcname, is_needed);
+
+    if (import_sv) {
+        if (!SvROK(import_sv) || SVt_PVCV != SvTYPE(SvRV(import_sv))) {
+            if (is_needed) {
+                croak("Import “%.*s.%.*s” must be a CODE reference, not `%" SVf "`!", (int) modname->size, modname->data, (int) funcname->size, funcname->data, import_sv);
+            }
+            else {
+                return NULL;
+            }
         }
     }
 
-    return (CV*) *import_val_p;
+    return (CV*) import_sv;
 }
 
 SV* instance_to_sv (pTHX_ wasm_instance_t* instance, SV* module_sv, const char* class) {
@@ -161,29 +169,29 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
 
     module_holder_t* module_holder_p = svrv_to_ptr(aTHX_ module_sv);
 
-    own wasm_importtype_vec_t import_types;
-    wasm_module_imports(module_holder_p->module, &import_types);
+    wasm_importtype_vec_t* import_types_p = &module_holder_p->import_types;
 
     SV* store_sv = module_holder_p->store_sv;
     store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ store_sv);
 
-    wasm_extern_t* externs[import_types.size];
+    wasm_extern_t* externs[import_types_p->size];
 
-    for (size_t i = 0; i < import_types.size; ++i) {
-        const wasm_name_t* modname = wasm_importtype_module(import_types.data[i]);
-        const wasm_name_t* name = wasm_importtype_name(import_types.data[i]);
+    for (size_t i = 0; i < import_types_p->size; ++i) {
+        const wasm_name_t* modname = wasm_importtype_module(import_types_p->data[i]);
+        const wasm_name_t* name = wasm_importtype_name(import_types_p->data[i]);
 
         if (_DEBUG) {
             fprintf(stderr, "Import %zu: %.*s/%.*s\n", i, (int)modname->size, modname->data, (int)name->size, name->data);
         }
 
-        const wasm_externtype_t* externtype = wasm_importtype_type(import_types.data[i]);
+        const wasm_externtype_t* externtype = wasm_importtype_type(import_types_p->data[i]);
+
+        CV* coderef = _get_import_coderef(aTHX_ imports_hv, modname, name, false);
 
         switch (wasm_externtype_kind(externtype)) {
             case WASM_EXTERN_FUNC: {
                 wasm_extern_t* cur_extern_p = NULL;
 
-                CV* coderef = _get_import_coderef(aTHX_ imports_hv, modname, name, false);
 
                 if (NULL == coderef) {
                     if (host_imports) {
@@ -205,9 +213,9 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
                     Newx(callback_holder_p, 1, callback_holder_t);
 
                     callback_holder_p->store = store_holder_p->store;
-    #if WASM_WASMER_MUST_STORE_PERL
+#if WASM_WASMER_MUST_STORE_PERL
                     callback_holder_p->aTHX = aTHX;
-    #endif
+#endif
                     callback_holder_p->coderef = coderef;
                     SvREFCNT_inc( (SV*) coderef );
                     callback_holder_p->modname = *modname;
@@ -257,12 +265,10 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
         &trap
     );
 
-    for (unsigned i=0; i<import_types.size; i++) {
+    for (unsigned i=0; i<import_types_p->size; i++) {
         wasm_func_t* func = wasm_extern_as_func(externs[i]);
         wasm_func_delete(func);
     }
-
-    wasm_importtype_vec_delete(&import_types);
 
     if (!instance) {
         _croak_if_trap(aTHX_ trap);
