@@ -29,6 +29,10 @@ use constant _WAT => <<'END';
   (memory $0 1)
   (data (i32.const 0) "Hello World!\00")
   (export "pagememory" (memory $0))
+
+  ;; global export:
+  (global $g (mut i32) (i32.const 123))
+  (export "myglobal" (global $g))
 )
 END
 
@@ -50,6 +54,47 @@ sub test_func_export_add : Tests(1) {
             },
         ],
         'export_functions()',
+    );
+
+    return;
+}
+
+sub test_global_export : Tests(4) {
+    my $ok_wat = _WAT;
+    my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
+
+    my $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_instance();
+
+    is(
+        [ $instance->export_globals() ],
+        [
+            object {
+                prop blessed => 'Wasm::Wasmer::Export::Global';
+                call name => 'myglobal';
+                call get => 123;
+            },
+        ],
+        'export_globals()',
+    );
+
+    my ($global) = ($instance->export_globals())[0];
+
+    is(
+        $global->set(234),
+        $global,
+        'set() return',
+    );
+
+    is($global->get(), 234, 'set() did its thing');
+
+    is(
+        [ $instance->export_globals() ],
+        [
+            object {
+                call get => 234;
+            },
+        ],
+        'set() did its thing (new export_globals())',
     );
 
     return;
