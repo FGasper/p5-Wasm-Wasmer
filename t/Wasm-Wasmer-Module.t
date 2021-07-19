@@ -26,22 +26,44 @@ END
 
 __PACKAGE__->new()->runtests() if !caller;
 
-sub test_validate_module : Tests(4) {
-    my $ok_wat = _WAT;
+sub test_invalid_module : Tests(1) {
+    my $ok_wat = join(
+        "\n",
+        '(module',
+        '(func (export "funcfunc") (param i32 i64))',
+        '(func (export "funcfunc") (param i32 i64))',
+        ')',
+    );
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
 
-    ok(Wasm::Wasmer::Module::validate($ok_wasm), 'valid wasm');
-    ok(!Wasm::Wasmer::Module::validate('//////'), 'bad wasm');
+    my $err = dies { Wasm::Wasmer::Module->new($ok_wasm) };
+
+    is(
+        $err,
+        match(qr<funcfunc>),
+        'error as expected',
+        explain $err,
+    );
+
+    return;
+}
+
+sub test_validate_module : Tests(4) {
+    my $ok_wat  = _WAT;
+    my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
+
+    ok( Wasm::Wasmer::Module::validate($ok_wasm),  'valid wasm' );
+    ok( !Wasm::Wasmer::Module::validate('//////'), 'bad wasm' );
 
     my $store = Wasm::Wasmer::Store->new();
 
     ok(
-        Wasm::Wasmer::Module::validate($ok_wasm, $store),
+        Wasm::Wasmer::Module::validate( $ok_wasm, $store ),
         'valid wasm, w/ store',
     );
 
     ok(
-        !Wasm::Wasmer::Module::validate('//////', $store),
+        !Wasm::Wasmer::Module::validate( '//////', $store ),
         'bad wasm, w/ store',
     );
 
@@ -49,7 +71,7 @@ sub test_validate_module : Tests(4) {
 }
 
 sub test_serialize_deserialize : Tests(1) {
-    my $ok_wat = _WAT;
+    my $ok_wat  = _WAT;
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
 
     my $module = Wasm::Wasmer::Module->new($ok_wasm);
@@ -60,7 +82,7 @@ sub test_serialize_deserialize : Tests(1) {
 
     isa_ok(
         $module2,
-        [ 'Wasm::Wasmer::Module' ],
+        ['Wasm::Wasmer::Module'],
         'deserialize() return',
     );
 

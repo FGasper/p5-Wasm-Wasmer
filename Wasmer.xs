@@ -718,10 +718,10 @@ set (SV* self_sv, SV* replacement_sv, SV* offset_sv=NULL)
         Copy(replacement, buf + offset, replen, void);
 
 SV*
-substr (SV* self_sv, SV* offset_sv=NULL, SV* length_sv=NULL)
+get (SV* self_sv, SV* offset_sv=NULL, SV* length_sv=NULL)
     CODE:
         if (GIMME_V == G_VOID) {
-            croak("substr is useless in void context!");
+            croak("get() is useless in void context!");
         }
 
         char *buf = memory_sv_data(aTHX_ self_sv);
@@ -734,21 +734,30 @@ substr (SV* self_sv, SV* offset_sv=NULL, SV* length_sv=NULL)
             if (offset < 0) {
                 offset += buflen;
             }
+            else if (offset >= buflen) {
+                croak(
+                    "offset %" IVdf " exceeds size=%" UVuf,
+                    offset,
+                    buflen
+                );
+            }
+
+            UV len;
 
             if (length_sv) {
-                UV len = grok_uv(aTHX_ length_sv);
-
-                UV end_offset = offset + len;
-
-                if (end_offset > buflen) {
-                    CROAK_MEMORY_STR_EXCESS(offset, len, buflen);
-                }
-
-                RETVAL = newSVpvn(buf + offset, len);
+                len = grok_uv(aTHX_ length_sv);
             }
             else {
-                RETVAL = newSVpvn(buf + offset, buflen - offset);
+                len = buflen - offset;
             }
+
+            UV end_offset = offset + len;
+
+            if (end_offset > buflen) {
+                CROAK_MEMORY_STR_EXCESS(offset, len, buflen);
+            }
+
+            RETVAL = newSVpvn(buf + offset, len);
         }
         else {
             RETVAL = newSVpvn(buf, buflen);
@@ -945,6 +954,27 @@ _new (SV* classname_sv, SV* wasiname_sv, SV* opts_hr=NULL)
         wasi_holder_t* holder = wasi_env_to_holder(aTHX_ wasienv);
 
         RETVAL = ptr_to_svrv(aTHX_ holder, gv_stashpv(classname, FALSE));
+
+    OUTPUT:
+        RETVAL
+
+SV*
+read_stdout (SV* self_sv, SV* len_sv)
+    CODE:
+        UV len = grok_uv(aTHX_ len_sv);
+
+        wasi_holder_t* holder = svrv_to_ptr(aTHX_ self_sv);
+
+        char output[len];
+
+        IV out = wasi_env_read_stdout(holder->env, output, len);
+
+        if (out >= 0) {
+            RETVAL = newSVpvn(output, out);
+        }
+        else {
+            XSRETURN_UNDEF;
+        }
 
     OUTPUT:
         RETVAL
