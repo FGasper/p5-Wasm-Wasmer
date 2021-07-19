@@ -79,6 +79,16 @@ use constant _WAT_FUNCTYPES => <<'END';
 )
 END
 
+use constant _WAT_GLOBAL_TYPES => <<'END';
+(module
+    (global (export "my_i32") (mut i32) (i32.const 333))
+    (global (export "my_i64") (mut i64) (i64.const 333))
+
+    (global (export "my_f32") (mut f32) (f32.const 33.5))
+    (global (export "my_f64") (mut f64) (f64.const 33.5))
+)
+END
+
 use constant _WAT_FUNC_PERL_CONTEXT => <<'END';
 (module
 
@@ -97,6 +107,76 @@ use constant _WAT_FUNC_PERL_CONTEXT => <<'END';
 END
 
 __PACKAGE__->new()->runtests() if !caller;
+
+sub test_create_instance__imports_misshapen : Tests(5) {
+    my $ok_wat  = _WAT_FUNCTYPES;
+    my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
+
+    my $module = Wasm::Wasmer::Module->new($ok_wasm);
+
+    my $err = dies { $module->create_instance( [ 123 ] ) };
+
+    is(
+        $err,
+        check_set(
+            match( qr<ARRAY> ),
+            match( qr<HASH> ),
+        ),
+        'imports are arrayref',
+    );
+
+    $err = dies {
+        $module->create_instance( {
+            my => [ 123 ],
+        } );
+    };
+
+    is(
+        $err,
+        check_set(
+            match( qr<my> ),
+            match( qr<ARRAY> ),
+            match( qr<HASH> ),
+        ),
+        'import namespace value is arrayref',
+    );
+
+    $err = dies { $module->create_instance( {} ) };
+
+    is(
+        $err,
+        check_set(
+            match( qr<my> ),
+            not_in_set( match( qr<func> ) ),
+        ),
+        'required namespace not given',
+    );
+
+    $err = dies { $module->create_instance( { my => {} } ) };
+
+    is(
+        $err,
+        check_set(
+            match( qr<my> ),
+            match( qr<func> ),
+        ),
+        'required import not given',
+    );
+
+    $err = dies { $module->create_instance( { my => {
+        func => [],
+    } } ) };
+
+    is(
+        $err,
+        check_set(
+            match( qr<my> ),
+            match( qr<func> ),
+            match( qr<CODE> ),
+        ),
+        'required import given as wrong type',
+    );
+}
 
 sub test_func_import_types : Tests(2) {
     my $ok_wat  = _WAT_FUNCTYPES;
@@ -278,7 +358,84 @@ sub test_func_export_add : Tests(2) {
     return;
 }
 
-sub test_global_export : Tests(7) {
+sub test_global_export_types : Tests(2) {
+    my $ok_wat  = _WAT_GLOBAL_TYPES;
+    my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
+
+    my $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_instance();
+
+    is(
+        [ $instance->export_globals() ],
+        bag {
+            item object {
+                prop blessed    => 'Wasm::Wasmer::Export::Global';
+                call name       => 'my_i32';
+                call get        => 333;
+                call mutability => Wasm::Wasmer::WASM_VAR;
+            };
+            item object {
+                prop blessed    => 'Wasm::Wasmer::Export::Global';
+                call name       => 'my_i64';
+                call get        => 333;
+                call mutability => Wasm::Wasmer::WASM_VAR;
+            };
+
+            item object {
+                prop blessed    => 'Wasm::Wasmer::Export::Global';
+                call name       => 'my_f32';
+                call get        => 33.5;
+                call mutability => Wasm::Wasmer::WASM_VAR;
+            };
+
+            item object {
+                prop blessed    => 'Wasm::Wasmer::Export::Global';
+                call name       => 'my_f64';
+                call get        => 33.5;
+                call mutability => Wasm::Wasmer::WASM_VAR;
+            };
+        },
+        'export_globals()',
+    );
+
+    $_->set(37) for $instance->export_globals();
+
+    is(
+        [ $instance->export_globals() ],
+        bag {
+            item object {
+                prop blessed    => 'Wasm::Wasmer::Export::Global';
+                call name       => 'my_i32';
+                call get        => 37;
+                call mutability => Wasm::Wasmer::WASM_VAR;
+            };
+            item object {
+                prop blessed    => 'Wasm::Wasmer::Export::Global';
+                call name       => 'my_i64';
+                call get        => 37;
+                call mutability => Wasm::Wasmer::WASM_VAR;
+            };
+
+            item object {
+                prop blessed    => 'Wasm::Wasmer::Export::Global';
+                call name       => 'my_f32';
+                call get        => 37;
+                call mutability => Wasm::Wasmer::WASM_VAR;
+            };
+
+            item object {
+                prop blessed    => 'Wasm::Wasmer::Export::Global';
+                call name       => 'my_f64';
+                call get        => 37;
+                call mutability => Wasm::Wasmer::WASM_VAR;
+            };
+        },
+        'export_globals()',
+    );
+
+    return;
+}
+
+sub test_global_export : Tests(8) {
     my $ok_wat  = _WAT;
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
 
@@ -305,6 +462,16 @@ sub test_global_export : Tests(7) {
         'export_globals()',
     );
 
+    my $err = dies { $instance->call('varglobal') };
+    is(
+        $err,
+        check_set(
+            match( qr<function> ),
+            match( qr<global> ),
+        ),
+        'error when call()ing a global',
+    );
+
     is( $tellvarglobal_f->call(), 123, 'tellvarglobal - initial' );
 
     my ( $global, $constglobal ) = $instance->export_globals();
@@ -319,7 +486,7 @@ sub test_global_export : Tests(7) {
 
     is( $tellvarglobal_f->call(), 234, 'tellvarglobal - after set()' );
 
-    my $err = dies { $constglobal->set(11) };
+    $err = dies { $constglobal->set(11) };
     is( $err, match(qr<global>), 'error on set of constant global' );
 
     is(
