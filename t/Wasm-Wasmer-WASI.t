@@ -15,6 +15,8 @@ use Wasm::Wasmer;
 use Wasm::Wasmer::Module;
 use Wasm::Wasmer::WASI;
 
+use File::Temp;
+
 use constant _WAT => <<'END';
 (module
 
@@ -34,6 +36,97 @@ use constant _WAT => <<'END';
 END
 
 __PACKAGE__->new()->runtests() if !caller;
+
+sub test_create : Tests(2) {
+    isa_ok(
+        Wasm::Wasmer::WASI->new(),
+        ['Wasm::Wasmer::WASI'],
+        'empty new()',
+    );
+
+    my $dir1 = File::Temp::tempdir( CLEANUP => 1 );
+    my $dir2 = File::Temp::tempdir( CLEANUP => 1 );
+
+    isa_ok(
+        Wasm::Wasmer::WASI->new(
+            stdin  => 'inherit',
+            stdout => 'inherit',
+            stderr => 'inherit',
+
+            args => [ 'one', 'two' ],
+
+            env => [ HEY => 'there', YOU => 'two' ],
+
+            preopen_dirs => [ $dir1, $dir2 ],
+
+            map_dirs => {
+                '/HEY/foo' => $dir1,
+                '/HEY/bar' => $dir2,
+            },
+        ),
+        ['Wasm::Wasmer::WASI'],
+        'decked-out new()',
+    );
+
+    return;
+}
+
+sub test_filesys_nonutf8 : Tests(3) {
+    my $baddir = "/foo/\xff\xff\xff";
+
+    my $err = dies {
+        Wasm::Wasmer::WASI->new(
+            preopen_dirs => [$baddir],
+        );
+    };
+
+    is(
+        $err,
+        check_set(
+            match(qr<$baddir>),
+            match(qr<utf-?8>i),
+        ),
+        'preopen_dirs: error as expected',
+    );
+
+    # --------------------------------------------------
+
+    $err = dies {
+        Wasm::Wasmer::WASI->new(
+            map_dirs => {
+                $baddir => '/good/dir',
+            },
+        );
+    };
+
+    is(
+        $err,
+        check_set(
+            match(qr<$baddir>),
+            match(qr<utf-?8>i),
+        ),
+        'map_dirs: alias has to be UTF-8',
+    );
+
+    $err = dies {
+        Wasm::Wasmer::WASI->new(
+            map_dirs => {
+                '/good/dir' => $baddir,
+            },
+        );
+    };
+
+    is(
+        $err,
+        check_set(
+            match(qr<$baddir>),
+            match(qr<utf-?8>i),
+        ),
+        'map_dirs: host dir has to be UTF-8',
+    );
+
+    return;
+}
 
 sub test_fd_write : Tests(4) {
     my $ok_wasm = Wasm::Wasmer::wat2wasm(_WAT);

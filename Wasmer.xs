@@ -51,7 +51,6 @@ void print_wasmer_error()
 /* ---------------------------------------------------------------------- */
 
 unsigned _call_wasm( pTHX_ SV** SP, wasm_func_t* function, wasm_exporttype_t* export_type, SV** given_arg, unsigned given_args_count ) {
-fprintf(stderr, "in _call_wasm\n");
 
     own wasm_functype_t* functype = wasm_func_type(function);
 
@@ -172,6 +171,11 @@ static inline void _start_wasi_if_needed(pTHX_ instance_holder_t* instance_holde
     own wasm_trap_t* trap = wasm_func_call(func, &args, &results);
 
     _croak_if_trap(aTHX_ trap);
+}
+
+static inline void _wasi_config_delete( wasi_config_t* config ) {
+    wasi_env_t* wasienv = wasi_env_new(config);
+    wasi_env_delete(wasienv);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -921,8 +925,12 @@ _new (SV* classname_sv, SV* wasiname_sv, SV* opts_hr=NULL)
                 SSize_t av_len = 1 + av_top_index(dirs);
 
                 for (UV i=0; i<av_len; i++) {
-                    SV *dir = *(av_fetch(dirs, i, 0));
-                    wasi_config_preopen_dir(config, SvPVbyte_nolen(dir));
+                    SV* dir = *(av_fetch(dirs, i, 0));
+                    bool ok = wasi_config_preopen_dir(config, SvPVbyte_nolen(dir));
+                    if (!ok) {
+                        _wasi_config_delete(config);
+                        _croak_if_wasmer_error("Failed to preopen directory %" SVf, dir);
+                    }
                 }
             }
 
@@ -943,7 +951,8 @@ _new (SV* classname_sv, SV* wasiname_sv, SV* opts_hr=NULL)
                     bool ok = wasi_config_mapdir( config, keystr, valuestr );
 
                     if (!ok) {
-                        croak("Failed to map alias %s to directory %s!", keystr, valuestr);
+                        _wasi_config_delete(config);
+                        _croak_if_wasmer_error("Failed to map alias %" SVf " to directory %" SVf, key, value);
                     }
                 }
             }
