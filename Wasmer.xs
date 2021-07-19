@@ -51,6 +51,7 @@ void print_wasmer_error()
 /* ---------------------------------------------------------------------- */
 
 unsigned _call_wasm( pTHX_ SV** SP, wasm_func_t* function, wasm_exporttype_t* export_type, SV** given_arg, unsigned given_args_count ) {
+fprintf(stderr, "in _call_wasm\n");
 
     own wasm_functype_t* functype = wasm_func_type(function);
 
@@ -63,20 +64,20 @@ unsigned _call_wasm( pTHX_ SV** SP, wasm_func_t* function, wasm_exporttype_t* ex
     wasm_valkind_t param_kind[given_args_count];
     wasm_valkind_t result_kind[results_count];
 
-    for (unsigned i=0; i<given_args_count; i++) {
+    for (unsigned i=0; i<params->size; i++) {
         param_kind[i] = wasm_valtype_kind(params->data[i]);
     }
 
-    for (unsigned i=0; i<results_count; i++) {
+    for (unsigned i=0; i<results->size; i++) {
         result_kind[i] = wasm_valtype_kind(results->data[i]);
     }
 
     wasm_functype_delete(functype);
 
-    if (given_args_count > params_count) {
+    if (given_args_count != params_count) {
         const wasm_name_t* name = wasm_exporttype_name(export_type);
 
-        croak("“%.*s” expects %u input(s); %u given", (int)name->size, name->data, params_count, given_args_count);
+        croak("“%.*s” needs %u parameter(s); %u given", (int)name->size, name->data, params_count, given_args_count);
     }
 
     if ((results_count > 1) && GIMME_V == G_SCALAR) {
@@ -226,7 +227,7 @@ wat2wasm ( SV* wat_sv )
         else {
             wasm_byte_vec_delete(&wasmvec);
 
-            _croak_if_wasmer_error(aTHX);
+            _croak_if_wasmer_error("Failed to convert WAT to WASM");
 
             croak("wat2wasm failed but left no message!");
         }
@@ -606,19 +607,19 @@ call (SV* self_sv, SV* funcname_sv, ...)
 
         instance_holder_t* instance_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
-        wasm_exporttype_t* export_type;
+        wasm_exporttype_t* export_type = NULL;
 
         wasm_func_t* func = _get_instance_function(aTHX_ instance_holder_p, funcname, funcname_len, &export_type);
 
-        if (func) {
-            _start_wasi_if_needed(aTHX_ instance_holder_p);
-
-            unsigned retvals = _call_wasm( aTHX_ SP, func, export_type, &ST(2), given_args_count );
-
-            XSRETURN(retvals);
+        if (!func) {
+            croak("No function named “%" SVf "” exists!", funcname_sv);
         }
 
-        croak("No function named “%" SVf "” exists!", funcname_sv);
+        _start_wasi_if_needed(aTHX_ instance_holder_p);
+
+        unsigned retvals = _call_wasm( aTHX_ SP, func, export_type, &ST(2), given_args_count );
+
+        XSRETURN(retvals);
 
 void
 DESTROY (SV* self_sv)

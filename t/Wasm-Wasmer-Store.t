@@ -16,6 +16,36 @@ use Wasm::Wasmer::Store;
 
 __PACKAGE__->new()->runtests() if !caller;
 
+sub test_compiler_and_engine : Tests(6) {
+    for my $compiler ( qw(cranelift llvm singlepass) ) {
+        for my $engine ( qw(universal dylib) ) {
+          SKIP: {
+                my $label = "compiler=$compiler, engine=$engine";
+
+                my $err = dies {
+                    Wasm::Wasmer::Store->new(
+                        compiler => $compiler,
+                        engine => $engine,
+                    );
+                };
+
+                skip "$label: OK", 1 if !$err;
+
+                is(
+                    $err,
+                    in_set(
+                        match( qr<compiler.*$compiler> ),
+                        match( qr<engine.*$engine> ),
+                    ),
+                    "$label: expected error",
+                );
+            }
+        }
+    }
+
+    return;
+}
+
 sub test_new : Tests(4) {
     isa_ok(
         Wasm::Wasmer::Store->new(),

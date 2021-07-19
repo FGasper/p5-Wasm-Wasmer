@@ -55,7 +55,8 @@ SV* create_module_sv (pTHX_ SV* class_sv, SV* wasm_sv, SV* store_sv) {
     wasm_module_t* module = wasm_module_new(store_holder_p->store, &binary);
 
     if (!module) {
-        _croak_if_wasmer_error(aTHX);
+        SvREFCNT_dec(store_sv);
+        _croak_if_wasmer_error("Failed to create WASM module");
         croak("Module creation failed but left no message!");
     }
 

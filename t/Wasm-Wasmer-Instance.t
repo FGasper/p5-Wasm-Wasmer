@@ -58,12 +58,92 @@ use constant _WAT_IMPORTS => <<'END';
         i32.const 2  ;; pass length 2 to log
         call $mf
     )
+
+    (func (export "needsparams") (param i32 i32))
+)
+END
+
+use constant _WAT_FUNCTYPES => <<'END';
+(module
+
+    ;; function import:
+    (import "my" "func" (func $mf (param i32 i64 f32 f64) (result i32 i64 f32 f64)))
+
+    (func (export "callfunc") (param i32 i64 f32 f64) (result i32 i64 f32 f64)
+        local.get 0
+        local.get 1
+        local.get 2
+        local.get 3
+        call $mf
+    )
+)
+END
+
+use constant _WAT_FUNC_PERL_CONTEXT => <<'END';
+(module
+
+    ;; function import:
+    (import "my" "voidfunc" (func $vf))
+    (import "my" "scalarfunc" (func $sf (result i32)))
+
+    (func (export "voidfunc")
+        call $vf
+    )
+
+    (func (export "scalarfunc") (result i32)
+        call $sf
+    )
 )
 END
 
 __PACKAGE__->new()->runtests() if !caller;
 
-sub test_func_import : Tests(2) {
+sub test_func_import_types : Tests(2) {
+    my $ok_wat = _WAT_FUNCTYPES;
+    my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
+
+    my @cb_inputs;
+
+    my $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_instance(
+        {
+            my => {
+                func => sub { @cb_inputs = @_; return @cb_inputs },
+            },
+        },
+    );
+
+    my @values = (1, 2, 1.5, 2.5);
+
+    my @got = $instance->call(callfunc => @values);
+    is(\@cb_inputs, \@values, 'callback receives expected values');
+    is(\@got, \@values, 'all values go through as expected');
+}
+
+sub test_func_import_context : Tests(2) {
+    my $ok_wat = _WAT_FUNC_PERL_CONTEXT;
+    my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
+
+    my $wantarray;
+
+    my $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_instance(
+        {
+            my => {
+                voidfunc => sub { $wantarray = wantarray; () },
+                scalarfunc => sub { $wantarray = wantarray; 1 },
+            },
+        },
+    );
+
+    $instance->call('scalarfunc');
+    is($wantarray, q<>, '1 return -> scalar context');
+
+    $instance->call('voidfunc');
+    is($wantarray, undef, '0 returns -> void context');
+
+    return;
+}
+
+sub test_func_import : Tests(7) {
     my $ok_wat = _WAT_IMPORTS;
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
 
@@ -77,10 +157,91 @@ sub test_func_import : Tests(2) {
         },
     );
 
-    my @got = ($instance->export_functions())[0]->call();
+    my @got = $instance->call('callfunc');
 
     is( \@cb_inputs, [0, 2], 'callback called');
     is( \@got, [22, 33], 'values from callback passed' );
+
+    #--------------------------------------------------
+
+    $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_instance(
+        {
+            my => {
+                func => sub { @cb_inputs = @_; return (1, 2, 3) },
+            },
+        },
+    );
+
+    my $err = dies {
+        diag explain [ $instance->call('callfunc') ];
+    };
+
+    is(
+        $err,
+        check_set(
+            match( qr<my.*func> ),  # name
+            match( qr<2> ),         # expected
+            match( qr<3> ),         # received
+        ),
+        'error when callback mismatches expected returns count',
+    );
+
+    $err = dies {
+        diag explain [ scalar $instance->call('callfunc') ];
+    };
+
+    is(
+        $err,
+        check_set(
+            match( qr<callfunc> ),  # name
+            match( qr<scalar> ),    # expected
+        ),
+        'error when list-returning WASM function called in scalar context',
+    );
+
+    #----------------------------------------------------------------------
+
+    $err = dies {
+        diag explain [ $instance->call('needsparams') ];
+    };
+
+    is(
+        $err,
+        check_set(
+            match(qr<needsparams>),
+            match( qr<2> ),
+            match( qr<0> ),
+        ),
+        'No params given to function that needs 2',
+    );
+
+    $err = dies {
+        diag explain [ $instance->call('needsparams', 7) ];
+    };
+
+    is(
+        $err,
+        check_set(
+            match(qr<needsparams>),
+            match( qr<2> ),
+            match( qr<1> ),
+        ),
+        '1 param given to function that needs 2',
+    );
+
+    $err = dies {
+        diag explain [ $instance->call('needsparams', 7, 7, 7) ];
+    };
+
+    is(
+        $err,
+        check_set(
+            match(qr<needsparams>),
+            match( qr<2> ),
+            match( qr<3> ),
+        ),
+        '3 params given to function that needs 2',
+    );
 
     return;
 }

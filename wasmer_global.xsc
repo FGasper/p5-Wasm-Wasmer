@@ -175,7 +175,10 @@ static inline void global_export_sv_set_sv (pTHX_ SV* self_sv, SV* newval) {
 
     wasm_global_set(global, &val);
 
-    _croak_if_wasmer_error(aTHX);
+    if (_WASMER_HAS_ERROR) {
+        const wasm_name_t* name = wasm_exporttype_name(global_holder_p->export_type);
+        _croak_if_wasmer_error("Failed to set global “%.*s”", (int) name->size, name->data);
+    }
 }
 
 static inline void destroy_export_global_sv (pTHX_ SV* self_sv) {

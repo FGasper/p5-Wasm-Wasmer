@@ -33,15 +33,15 @@ static wasm_extern_t* _get_instance_export(pTHX_ instance_holder_t* instance_hol
     wasm_extern_vec_t* exports = &instance_holder_p->exports;
 
     for (unsigned i = 0; i<exports->size; i++) {
-        const wasm_name_t* name = wasm_exporttype_name(export_types->data[i]);
+        const wasm_name_t* wasm_name = wasm_exporttype_name(export_types->data[i]);
 
-        if (funcname_len != name->size) continue;
-        if (!memEQ(name->data, funcname, funcname_len)) continue;
+        if (name_len != wasm_name->size) continue;
+        if (!memEQ(wasm_name->data, name, name_len)) continue;
 
         /* Yay! We found our function. */
 
         *export_type_pp = export_types->data[i];
-        return wasm_extern_as_func(exports->data[i]);
+        return exports->data[i];
     }
 
     return NULL;
@@ -50,6 +50,8 @@ static wasm_extern_t* _get_instance_export(pTHX_ instance_holder_t* instance_hol
 static wasm_func_t* _get_instance_function(pTHX_ instance_holder_t* instance_holder_p, const char* funcname, STRLEN funcname_len, wasm_exporttype_t** export_type_pp) {
 
     wasm_extern_t* export = _get_instance_export(instance_holder_p, funcname, funcname_len, export_type_pp);
+
+    //fprintf(stderr, "export %.*s: %p\n", (int) funcname_len, funcname, export);
 
     if (export) {
         if (wasm_extern_kind(export) != WASM_EXTERN_FUNC) {
@@ -285,7 +287,7 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
 
     if (!instance) {
         _croak_if_trap(aTHX_ trap);
-        _croak_if_wasmer_error(aTHX);
+        _croak_if_wasmer_error("Failed to instantiate WASM module");
 
         assert(0 && "wasm_instance_new() failed without error?!?");
     }

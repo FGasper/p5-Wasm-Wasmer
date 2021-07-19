@@ -53,15 +53,17 @@ void croak_if_non_null_not_derived (pTHX_ SV *obj, const char* classname) {
     }
 }
 
-void _croak_if_wasmer_error(pTHX) {
-    int wasmer_errlen = wasmer_last_error_length();
-    if (wasmer_errlen > 0) {
-        char msg[wasmer_errlen];
-        wasmer_last_error_message(msg, wasmer_errlen);
+#define _WASMER_HAS_ERROR (wasmer_last_error_length() > 0)
 
-        croak("Wasmer error: %.*s", wasmer_errlen, msg);
-    }
-}
+#define _croak_if_wasmer_error(prefix, ...)      \
+    int wasmer_errlen = wasmer_last_error_length();     \
+    if (wasmer_errlen > 0) {                            \
+        char msg[wasmer_errlen];                        \
+        wasmer_last_error_message(msg, wasmer_errlen);  \
+                                                        \
+        croak(prefix ": %.*s", ##__VA_ARGS__, wasmer_errlen, msg); \
+    }                                                   \
+
 
 void _croak_if_trap (pTHX_ wasm_trap_t* trap) {
     if (trap != NULL) {

@@ -106,20 +106,20 @@ wasm_trap_t* host_func_callback( void* env, const wasm_val_vec_t* args, wasm_val
     for (I32 g=got_count-1; g >= 0; g--) {
         wasm_val_t* result = &results->data[g];
 
-        result->kind = wasm_valtype_kind(callback_holder_p->results.data[g]);
+        wasm_valkind_t kind = wasm_valtype_kind(callback_holder_p->results.data[g]);
 
-        switch (result->kind) {
+        switch (kind) {
             case WASM_I32:
-                result->of.i32 = (I32) POPi;
+                *result = (wasm_val_t) WASM_I32_VAL(POPi);
                 break;
             case WASM_I64:
-                result->of.i64 = (I64) POPi;
+                *result = (wasm_val_t) WASM_I64_VAL(POPi);
                 break;
             case WASM_F32:
-                result->of.f32 = (float) POPn;
+                *result = (wasm_val_t) WASM_F32_VAL(POPn);
                 break;
             case WASM_F64:
-                result->of.f64 = (double) POPn;
+                *result = (wasm_val_t) WASM_F64_VAL(POPn);
                 break;
 
             default:
