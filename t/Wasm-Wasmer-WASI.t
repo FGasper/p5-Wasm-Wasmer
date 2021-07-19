@@ -35,44 +35,54 @@ END
 
 __PACKAGE__->new()->runtests() if !caller;
 
-sub test_fd_write : Tests(2) {
+sub test_fd_write : Tests(4) {
     my $ok_wasm = Wasm::Wasmer::wat2wasm(_WAT);
 
     my $wasi = Wasm::Wasmer::WASI->new(
         stdout => 'capture',
+        stderr => 'capture',
     );
 
-    my $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_wasi_instance(
-        $wasi,
+    my @tt = (
+        [ 1 => 'read_stdout' ],
+        [ 2 => 'read_stderr' ],
     );
 
-    my $mem     = ( $instance->export_memories() )[0];
-    my $payload = 'hello';
+    for my $t_ar (@tt) {
+        my ( $wasi_fd, $read_fn ) = @$t_ar;
 
-    # Cribbed from as-wasi’s use of fd_write and wasi.rs:
-    # Payload at offset 32, (addr, len) at offset 16.
+        my $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_wasi_instance(
+            $wasi,
+        );
 
-    $mem->set( $payload,                          32 );
-    $mem->set( pack( 'LL', 32, length $payload ), 16 );
+        my $mem     = ( $instance->export_memories() )[0];
+        my $payload = 'hello';
 
-    my $wasi_errno = $instance->call(
-        'fd_write',
-        1,     # Write to FD 1/STDOUT (WASI’s FD 1, that is!).
-        16,    # iovecs are at offset 16.
-        1,     # There’s 1 iovec.
-        8,     # Write the # of bytes written to offset 8.
-    );
+        # Cribbed from as-wasi’s use of fd_write and wasi.rs:
+        # Payload at offset 32, (addr, len) at offset 16.
 
-    die "WASI errno: $wasi_errno" if $wasi_errno;
+        $mem->set( $payload,                          32 );
+        $mem->set( pack( 'LL', 32, length $payload ), 16 );
 
-    my $wrote = unpack 'L', $mem->get( 8, 4 );
-    is( $wrote, length($payload), 'bytes written' );
+        my $wasi_errno = $instance->call(
+            'fd_write',
+            $wasi_fd,    # WASI FD to write to
+            16,          # iovecs are at offset 16.
+            1,           # There’s 1 iovec.
+            8,           # Write the # of bytes written to offset 8.
+        );
 
-    is(
-        $wasi->read_stdout(32),
-        $payload,
-        'STDOUT captured',
-    );
+        die "WASI errno: $wasi_errno" if $wasi_errno;
+
+        my $wrote = unpack 'L', $mem->get( 8, 4 );
+        is( $wrote, length($payload), 'bytes written' );
+
+        is(
+            $wasi->$read_fn(32),
+            $payload,
+            "$read_fn() reads captured output",
+        );
+    }
 
     return;
 }

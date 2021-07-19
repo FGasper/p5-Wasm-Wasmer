@@ -965,16 +965,19 @@ read_stdout (SV* self_sv, SV* len_sv)
 
         wasi_holder_t* holder = svrv_to_ptr(aTHX_ self_sv);
 
-        char output[len];
+        RETVAL = wasi_holder_read_stdout(aTHX_ holder, len);
 
-        IV out = wasi_env_read_stdout(holder->env, output, len);
+    OUTPUT:
+        RETVAL
 
-        if (out >= 0) {
-            RETVAL = newSVpvn(output, out);
-        }
-        else {
-            XSRETURN_UNDEF;
-        }
+SV*
+read_stderr (SV* self_sv, SV* len_sv)
+    CODE:
+        UV len = grok_uv(aTHX_ len_sv);
+
+        wasi_holder_t* holder = svrv_to_ptr(aTHX_ self_sv);
+
+        RETVAL = wasi_holder_read_stderr(aTHX_ holder, len);
 
     OUTPUT:
         RETVAL

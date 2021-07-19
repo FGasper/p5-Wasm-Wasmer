@@ -18,4 +18,21 @@ wasi_holder_t* wasi_env_to_holder (pTHX_ wasi_env_t* wasienv) {
     return wasi_holder_p;
 }
 
+#define _read_wasi(wasienv, len, readfn) STMT_START {    \
+    char output[len];                           \
+                                                \
+    IV out = readfn(wasienv, output, len);      \
+                                                \
+    if (out >= 0) return newSVpvn(output, out); \
+    return &PL_sv_undef;                        \
+} STMT_END
+
+SV* wasi_holder_read_stdout (pTHX_ wasi_holder_t* holder, STRLEN len) {
+    _read_wasi(holder->env, len, wasi_env_read_stdout);
+}
+
+SV* wasi_holder_read_stderr (pTHX_ wasi_holder_t* holder, STRLEN len) {
+    _read_wasi(holder->env, len, wasi_env_read_stderr);
+}
+
 #endif
