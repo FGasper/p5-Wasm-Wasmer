@@ -20,6 +20,12 @@
 
 #define _DEBUG 1
 
+#define WASI_CLASS "Wasm::Wasmer::WASI"
+#define IMP_GLOBAL_CLASS "Wasm::Wasmer::Import::Global"
+#define EXP_MEMORY_CLASS "Wasm::Wasmer::Export::Memory"
+#define EXP_GLOBAL_CLASS "Wasm::Wasmer::Export::Global"
+#define EXP_FUNCTION_CLASS "Wasm::Wasmer::Export::Function"
+
 #include "p5_wasm_wasmer.h"
 #include "wasmer_engine.xsc"
 #include "wasmer_store.xsc"
@@ -29,11 +35,6 @@
 #include "wasmer_memory.xsc"
 #include "wasmer_global.xsc"
 #include "wasmer_wasi.xsc"
-
-#define WASI_CLASS "Wasm::Wasmer::WASI"
-#define EXP_MEMORY_CLASS "Wasm::Wasmer::Export::Memory"
-#define EXP_GLOBAL_CLASS "Wasm::Wasmer::Export::Global"
-#define EXP_FUNCTION_CLASS "Wasm::Wasmer::Export::Function"
 
 #define _ptr_to_svrv ptr_to_svrv
 
@@ -423,12 +424,58 @@ create_wasi_instance (SV* self_sv, SV* wasi_sv=NULL, SV* imports_sv=NULL)
     OUTPUT:
         RETVAL
 
-#SV* create_global (SV* self_sv, SV* value)
-#    CODE:
-#        
-#
-#    OUTPUT:
-#        RETVAL
+SV*
+create_global (SV* self_sv, SV* value)
+    CODE:
+        PERL_UNUSED_ARG(self_sv);
+        global_import_holder_t* holder = new_global_import(aTHX_ value);
+
+        RETVAL = ptr_to_svrv(aTHX_ holder, gv_stashpv(IMP_GLOBAL_CLASS, FALSE));
+
+    OUTPUT:
+        RETVAL
+
+# ----------------------------------------------------------------------
+
+MODULE = Wasm::Wasmer     PACKAGE = Wasm::Wasmer::Import::Global
+
+PROTOTYPES: DISABLE
+
+SV*
+get (SV* self_sv)
+    CODE:
+        global_import_holder_t* holder = svrv_to_ptr(aTHX_ self_sv);
+
+        if (holder->given) {
+            RETVAL = newSVsv(holder->given);
+        }
+        else {
+            RETVAL = global_import_holder_get_sv(aTHX_ holder);
+        }
+
+    OUTPUT:
+        RETVAL
+
+SV*
+set (SV* self_sv)
+    CODE:
+        global_import_holder_t* holder = svrv_to_ptr(aTHX_ self_sv);
+
+        if (holder->given) {
+            croak("Can’t modify global import’s value prior to instantiation");
+        }
+        else {
+            RETVAL = global_import_holder_get_sv(aTHX_ holder);
+        }
+
+    OUTPUT:
+        RETVAL
+
+void
+DESTROY (SV* self_sv)
+    CODE:
+        global_import_holder_t* holder = svrv_to_ptr(aTHX_ self_sv);
+        destroy_global_import(aTHX_ holder);
 
 # ----------------------------------------------------------------------
 

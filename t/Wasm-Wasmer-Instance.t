@@ -358,6 +358,48 @@ sub test_func_export_add : Tests(2) {
     return;
 }
 
+sub test_import_globals : Tests(1) {
+    my $ok_wat = join(
+        "\n",
+        '(module',
+        '   (import "global" "i32" (global $g1 (mut i32)))',
+        '   (import "global" "i64" (global $g2 (mut i64)))',
+        '   (import "global" "f32" (global $g3 (mut f32)))',
+        '   (import "global" "f64" (global $g4 (mut f64)))',
+        '   (func (export "get_i32") (result i32) global.get $g1)',
+        '   (func (export "get_i64") (result i64) global.get $g2)',
+        '   (func (export "get_f32") (result f32) global.get $g3)',
+        '   (func (export "get_f64") (result f64) global.get $g4)',
+        ')',
+    );
+
+    my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
+
+    my $module = Wasm::Wasmer::Module->new($ok_wasm);
+
+    my $instance = $module->create_instance(
+        {
+            global => {
+                i32 => $module->create_global(5),
+                i64 => $module->create_global(500),
+                f32 => $module->create_global(5.5),
+                f64 => $module->create_global(500.5),
+            },
+        },
+    );
+
+    is(
+        $instance,
+        object {
+            call [ call => 'get_i32' ] => 5;
+            call [ call => 'get_i64' ] => 500;
+            call [ call => 'get_f32' ] => 5.5;
+            call [ call => 'get_f64' ] => 500.5;
+        },
+        'globals set as expected on instantiation',
+    );
+}
+
 sub test_global_export_types : Tests(2) {
     my $ok_wat  = _WAT_GLOBAL_TYPES;
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);

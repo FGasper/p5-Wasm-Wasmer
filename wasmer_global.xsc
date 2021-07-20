@@ -15,6 +15,8 @@ typedef struct {
 typedef struct {
     wasm_global_t* global;
     wasm_globaltype_t* type;
+    SV* module_sv;
+    wasm_importtype_t* import_type;
 
     pid_t pid;
     SV* given;
@@ -32,14 +34,24 @@ global_import_holder_t* new_global_import (pTHX_ SV* given) {
     return new;
 }
 
-static inline void global_import_sv_initialize (pTHX_ SV* self_sv, wasm_store_t* store, wasm_globaltype_t* type) {
-    global_import_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
+void destroy_global_import(pTHX_ global_import_holder_t* holder) {
+    // TODO: warn if needed
+
+    if (holder->given) {
+        SvREFCNT_dec(holder->given);
+    }
+
+    if (holder->module_sv) {
+        SvREFCNT_dec(holder->module_sv);
+    }
+}
+
+static inline wasm_global_t* global_import_sv_initialize (pTHX_ SV* global_sv, wasm_importtype_t* import_type, SV* module_sv, wasm_store_t* store, const wasm_globaltype_t* type) {
+    global_import_holder_t* holder_p = svrv_to_ptr(aTHX_ global_sv);
 
     const wasm_valtype_t* type_p = wasm_globaltype_content(type);
 
     wasm_valkind_t kind = wasm_valtype_kind(type_p);
-
-    //wasm_global_t* global;
 
     wasm_val_t val;
 
@@ -68,15 +80,13 @@ static inline void global_import_sv_initialize (pTHX_ SV* self_sv, wasm_store_t*
     holder_p->given = NULL;
 
     holder_p->global = wasm_global_new(store, type, &val);
-    holder_p->type = type;
+    holder_p->type = (wasm_globaltype_t*) type;
+    holder_p->import_type = import_type;
 
-/*
-    const wasm_externtype_t* externtype = wasm_importtype_type(import_type);
+    holder_p->module_sv = module_sv;
+    SvREFCNT_inc(module_sv);
 
-    if (wasm_externtype_kind(externtype) != WASM_EXTERN_GLOBAL) {
-        
-    }
-*/
+    return holder_p->global;
 }
 
 static inline SV* global_import_sv_mutability_sv (pTHX_ SV* self_sv) {
@@ -107,12 +117,10 @@ static inline SV* global_export_sv_mutability_sv (pTHX_ SV* self_sv) {
     return newSVuv(_get_export_mutability(global_holder_p));
 }
 
-static inline SV* global_export_sv_get_sv (pTHX_ SV* self_sv) {
-    global_export_holder_t* global_holder_p = svrv_to_ptr(aTHX_ self_sv);
-
+static inline SV* _wasm_global_to_sv (pTHX_ wasm_global_t* global) {
     wasm_val_t val;
 
-    wasm_global_get( global_holder_p->global, &val );
+    wasm_global_get( global, &val );
 
     SV* ret;
 
@@ -141,16 +149,12 @@ static inline SV* global_export_sv_get_sv (pTHX_ SV* self_sv) {
     return ret;
 }
 
-static inline void global_export_sv_set_sv (pTHX_ SV* self_sv, SV* newval) {
-    global_export_holder_t* global_holder_p = svrv_to_ptr(aTHX_ self_sv);
-
-    wasm_global_t* global = global_holder_p->global;
-
+static inline void _wasm_global_set_sv (pTHX_ wasm_global_t* global, SV* newval) {
     wasm_val_t val;
 
     // Simpler just to fetch the value than to trek through
     // the export_type -> extern_type -> global_type business.
-    wasm_global_get( global_holder_p->global, &val );
+    wasm_global_get( global, &val );
 
     switch (val.kind) {
         case WASM_I32:
@@ -174,10 +178,48 @@ static inline void global_export_sv_set_sv (pTHX_ SV* self_sv, SV* newval) {
     }
 
     wasm_global_set(global, &val);
+}
+
+static inline SV* global_export_sv_get_sv (pTHX_ SV* self_sv) {
+    global_export_holder_t* global_holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+    return _wasm_global_to_sv(aTHX_ global_holder_p->global);
+}
+
+static inline SV* global_import_holder_get_sv (pTHX_ global_import_holder_t* global_holder_p) {
+    return _wasm_global_to_sv(aTHX_ global_holder_p->global);
+}
+
+static inline void global_import_holder_set_sv (pTHX_ global_import_holder_t* global_holder_p, SV* newval) {
+    wasm_global_t* global = global_holder_p->global;
+
+    _wasm_global_set_sv(aTHX_ global, newval);
+
+    if (_WASMER_HAS_ERROR) {
+        const wasm_name_t* module = wasm_importtype_module(global_holder_p->import_type);
+        const wasm_name_t* name = wasm_importtype_name(global_holder_p->import_type);
+        _croak_if_wasmer_error(
+            "Failed to set imported global %.*s.%.*s",
+            (int) module->size, module->data,
+            (int) name->size, name->data
+        );
+
+        assert(0);
+    }
+}
+
+static inline void global_export_sv_set_sv (pTHX_ SV* self_sv, SV* newval) {
+    global_export_holder_t* global_holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+    wasm_global_t* global = global_holder_p->global;
+
+    _wasm_global_set_sv(aTHX_ global, newval);
 
     if (_WASMER_HAS_ERROR) {
         const wasm_name_t* name = wasm_exporttype_name(global_holder_p->export_type);
-        _croak_if_wasmer_error("Failed to set global “%.*s”", (int) name->size, name->data);
+        _croak_if_wasmer_error("Failed to set exported global “%.*s”", (int) name->size, name->data);
+
+        assert(0);
     }
 }
 
