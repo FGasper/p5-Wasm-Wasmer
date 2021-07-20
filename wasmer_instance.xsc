@@ -5,11 +5,10 @@
 
 #include "wasmer_module.xsc"
 #include "wasmer_global.xsc"
+#include "wasmer_memory.xsc"
 #include "wasmer_callback.xsc"
 
 #define P5_WASM_WASMER_INSTANCE_CLASS "Wasm::Wasmer::Instance"
-
-#define usize size_t
 
 typedef struct {
     wasm_instance_t* instance;
@@ -148,6 +147,23 @@ static SV* _get_import_global( pTHX_ HV* imports_hv, const wasm_name_t* modname,
     return import_sv;
 }
 
+static SV* _get_import_memory( pTHX_ HV* imports_hv, const wasm_name_t* modname, const wasm_name_t* memname, bool is_needed ) {
+    SV* import_sv = _get_import_sv(aTHX_ imports_hv, modname, memname, is_needed);
+
+    if (import_sv) {
+        if (!sv_isobject(import_sv) || !sv_derived_from(import_sv, IMP_MEMORY_CLASS)) {
+            croak(
+                "Import “%.*s.%.*s” must be a %s instance, not %" SVf,
+                (int) modname->size, modname->data,
+                (int) memname->size, memname->data,
+                IMP_MEMORY_CLASS, import_sv
+            );
+        }
+    }
+
+    return import_sv;
+}
+
 SV* instance_to_sv (pTHX_ wasm_instance_t* instance, SV* module_sv, wasm_extern_vec_t imports, const char* class) {
     instance_holder_t* instance_holder_p;
 
@@ -227,27 +243,6 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
         wasm_extern_t* cur_extern_p = NULL;
 
         switch (wasm_externtype_kind(externtype)) {
-            case WASM_EXTERN_GLOBAL: {
-                const wasm_globaltype_t* gtype = wasm_externtype_as_globaltype_const(externtype);
-
-                SV* import_sv = _get_import_global(aTHX_ imports_hv, modname, name, false);
-
-                wasm_global_t* global;
-
-                if (import_sv) {
-                    global = global_import_sv_initialize(aTHX_ import_sv, import_type, module_sv, store_holder_p->store, gtype);
-                    cur_extern_p = wasm_global_as_extern(global);
-                }
-                else {
-                    cur_extern_p = (wasm_extern_t*) _get_host_import(host_imports, modname, name);
-
-                    if (!cur_extern_p) {
-                        _get_import_global(aTHX_ imports_hv, modname, name, true);
-                        assert(0);
-                    }
-                }
-            } break;
-
             case WASM_EXTERN_FUNC: {
 
                 CV* coderef = _get_import_coderef(aTHX_ imports_hv, modname, name, false);
@@ -299,6 +294,48 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
                     cur_extern_p = wasm_func_as_extern(host_func);
                 }
 
+            } break;
+
+            case WASM_EXTERN_GLOBAL: {
+                const wasm_globaltype_t* gtype = wasm_externtype_as_globaltype_const(externtype);
+
+                SV* import_sv = _get_import_global(aTHX_ imports_hv, modname, name, false);
+
+                wasm_global_t* global;
+
+                if (import_sv) {
+                    global = global_import_sv_initialize(aTHX_ import_sv, import_type, module_sv, store_holder_p->store, gtype);
+                    cur_extern_p = wasm_global_as_extern(global);
+                }
+                else {
+                    cur_extern_p = (wasm_extern_t*) _get_host_import(host_imports, modname, name);
+
+                    if (!cur_extern_p) {
+                        _get_import_global(aTHX_ imports_hv, modname, name, true);
+                        assert(0);
+                    }
+                }
+            } break;
+
+            case WASM_EXTERN_MEMORY: {
+                const wasm_memorytype_t* mtype = wasm_externtype_as_memorytype_const(externtype);
+
+                SV* import_sv = _get_import_memory(aTHX_ imports_hv, modname, name, false);
+
+                wasm_memory_t* memory;
+
+                if (import_sv) {
+                    memory = memory_import_sv_initialize(aTHX_ import_sv, import_type, module_sv, store_holder_p->store, mtype);
+                    cur_extern_p = wasm_memory_as_extern(memory);
+                }
+                else {
+                    cur_extern_p = (wasm_extern_t*) _get_host_import(host_imports, modname, name);
+
+                    if (!cur_extern_p) {
+                        _get_import_global(aTHX_ imports_hv, modname, name, true);
+                        assert(0);
+                    }
+                }
             } break;
 
             default:

@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+typedef size_t usize;
+
 #define _IN_GLOBAL_DESTRUCTION (PL_phase == PERL_PHASE_DESTRUCT)
 
 #define warn_destruct_if_needed(sv, startpid) STMT_START { \

@@ -358,6 +358,35 @@ sub test_func_export_add : Tests(2) {
     return;
 }
 
+sub test_import_memory : Tests(1) {
+    my $ok_wat = join(
+        "\n",
+        '(module',
+        '   (import "my" "memory" (memory 2))',
+        ')',
+    );
+
+    my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
+
+    my $module = Wasm::Wasmer::Module->new($ok_wasm);
+
+    my $mem = $module->create_memory();
+
+    my $instance = $module->create_instance(
+        {
+            my => { memory => $mem },
+        },
+    );
+
+    is(
+        $mem->set('hello'),
+        $mem,
+        'set() returns $self',
+    );
+
+    return;
+}
+
 sub test_import_globals_types : Tests(1) {
     my $ok_wat = join(
         "\n",
@@ -618,7 +647,7 @@ sub test_memory_export : Tests(11) {
                 call [ get => () ], "Hello World!" . ( "\0" x 65524 );
                 call [ get => 0, 12 ] => "Hello World!";
                 call [ get => 6, 12 ] => "World!\0\0\0\0\0\0";
-                call_list [ set => 'Harry', 6 ] => [];
+                call [ set => 'Harry', 6 ] => T();
             },
         ],
         'export_memories()',
@@ -629,7 +658,7 @@ sub test_memory_export : Tests(11) {
         [
             object {
                 call [ get => 0, 13 ]           => "Hello Harry!\0";
-                call_list [ set => 'Sally', 6 ] => [];
+                call [ set => 'Sally', 6 ] => T();
                 call [ get => 0, 13 ]           => "Hello Sally!\0";
 
             },

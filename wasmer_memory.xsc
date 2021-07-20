@@ -3,25 +3,177 @@
 
 #include "p5_wasm_wasmer.h"
 
+#define CROAK_MEMORY_STR_EXCESS(offset, len, buflen) \
+    croak( \
+        "offset %" IVdf " + length %" UVuf " = %" UVuf " (exceeds size=%" IVdf ")", \
+        offset, len, offset + len, buflen \
+    )
+
+static inline void memory_set (pTHX_ wasm_memory_t* memory, SV* replacement_sv, SV* offset_sv) {
+    STRLEN replen;
+    char *replacement = SvPVbyte(replacement_sv, replen);
+
+    UV buflen = wasm_memory_data_size(memory);
+
+    IV offset = offset_sv && SvOK(offset_sv) ? grok_iv(aTHX_ offset_sv) : 0;
+
+    if (offset < 0) {
+        offset += buflen;
+    }
+
+    IV end_offset = offset + replen;
+
+    if (end_offset > buflen) {
+        CROAK_MEMORY_STR_EXCESS(offset, replen, buflen);
+    }
+
+    char *buf = wasm_memory_data(memory);
+
+    Copy(replacement, buf + offset, replen, void);
+}
+
+static inline SV* memory_get (pTHX_ wasm_memory_t* memory, SV* offset_sv, SV* length_sv) {
+    if (GIMME_V == G_VOID) {
+        croak("get() is useless in void context!");
+    }
+
+    char *buf = wasm_memory_data(memory);
+
+    UV buflen = wasm_memory_data_size(memory);
+
+    SV* retval;
+
+    if (offset_sv && SvOK(offset_sv)) {
+        IV offset = grok_iv(aTHX_ offset_sv);
+
+        if (offset < 0) {
+            offset += buflen;
+        }
+        else if (offset >= buflen) {
+            croak(
+                "offset %" IVdf " exceeds size=%" UVuf,
+                offset,
+                buflen
+            );
+        }
+
+        UV len;
+
+        if (length_sv) {
+            len = grok_uv(aTHX_ length_sv);
+        }
+        else {
+            len = buflen - offset;
+        }
+
+        UV end_offset = offset + len;
+
+        if (end_offset > buflen) {
+            CROAK_MEMORY_STR_EXCESS(offset, len, buflen);
+        }
+
+        retval = newSVpvn(buf + offset, len);
+    }
+    else if (length_sv) {
+        croak("Offset required if length given!");
+    }
+    else {
+        retval = newSVpvn(buf, buflen);
+    }
+
+    return retval;
+}
+
+// ----------------------------------------------------------------------
+
 typedef struct {
     wasm_limits_t given_limits;
 
     pid_t pid;
 
+    SV* module_sv;
     wasm_memory_t* memory;
-    wasm_exporttype_t* export_type;
+    const wasm_memorytype_t* type;
+    wasm_importtype_t* import_type;
 } memory_import_holder_t;
 
-memory_import_holder_t* new_memory_import(pTHX_ wasm_limits_t limits) {
+memory_import_holder_t* new_memory_import(pTHX) {
+/*
+    if (limits.max && limits.max < limits.min) {
+    }
+*/
+
     memory_import_holder_t* holder;
     Newxz(holder, 1, memory_import_holder_t);
 
+//    own wasm_memorytype_t* memtype = wasm_memorytype_new(&limits);
+
     *holder = (memory_import_holder_t) {
-        .given_limits = limits,
         .pid = getpid(),
+//        .memory = wasm_memory_new(limits),
     };
 
+/*
+    wasm_memorytype_delete(memtype);
+
+    if (!holder->memory) {
+        _croak_if_wasmer_error(
+            "Failed to create a memory (min=%lu, max=%lu)",
+            limits.min,
+            limits.max,
+        );
+
+        croak("Failed to create memory, but no Wasmer error?!?");
+    }
+*/
+
     return holder;
+}
+
+static inline wasm_memory_t* memory_import_sv_initialize (pTHX_ SV* memory_sv, wasm_importtype_t* import_type, SV* module_sv, wasm_store_t* store, const wasm_memorytype_t* type) {
+    memory_import_holder_t* holder_p = svrv_to_ptr(aTHX_ memory_sv);
+
+    holder_p->memory = wasm_memory_new(store, type);
+    if (!holder_p->memory) {
+        const wasm_name_t* module = wasm_importtype_module(import_type);
+        const wasm_name_t* name = wasm_importtype_name(import_type);
+
+        _croak_if_wasmer_error(
+            "Failed to create memory %.*s.%.*s",
+            (int) module->size, module->data,
+            (int) name->size, name->data
+        );
+
+        croak(
+            "Failed to create memory %.*s.%.*s, but no Wasmer error?!?",
+            (int) module->size, module->data,
+            (int) name->size, name->data
+        );
+    }
+
+    holder_p->type = type;
+    holder_p->import_type = import_type;
+
+    holder_p->module_sv = module_sv;
+    SvREFCNT_inc(module_sv);
+
+    return holder_p->memory;
+}
+
+static inline void destroy_memory_import_sv (pTHX_ SV* self_sv) {
+    memory_import_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+    warn_destruct_if_needed(self_sv, memory_holder_p->pid);
+
+    if (memory_holder_p->memory) {
+        //wasm_memory_delete(memory_holder_p->memory);
+    }
+
+    if (memory_holder_p->module_sv) {
+        SvREFCNT_dec(memory_holder_p->module_sv);
+    }
+
+    Safefree(memory_holder_p);
 }
 
 // ----------------------------------------------------------------------

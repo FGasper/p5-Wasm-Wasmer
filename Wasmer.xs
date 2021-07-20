@@ -22,6 +22,7 @@
 
 #define WASI_CLASS "Wasm::Wasmer::WASI"
 #define IMP_GLOBAL_CLASS "Wasm::Wasmer::Import::Global"
+#define IMP_MEMORY_CLASS "Wasm::Wasmer::Import::Memory"
 #define EXP_MEMORY_CLASS "Wasm::Wasmer::Export::Memory"
 #define EXP_GLOBAL_CLASS "Wasm::Wasmer::Export::Global"
 #define EXP_FUNCTION_CLASS "Wasm::Wasmer::Export::Function"
@@ -435,16 +436,80 @@ create_global (SV* self_sv, SV* value)
     OUTPUT:
         RETVAL
 
-# SV*
-# create_memory (SV* self_sv, ...)
-#     CODE:
-#         PERL_UNUSED_ARG(self_sv);
-#         global_memory_holder_t* holder = new_memory_import(aTHX_ value);
-# 
-#         RETVAL = ptr_to_svrv(aTHX_ holder, gv_stashpv(IMP_GLOBAL_CLASS, FALSE));
-# 
-#     OUTPUT:
-#         RETVAL
+SV*
+create_memory (SV* self_sv)
+    CODE:
+        PERL_UNUSED_ARG(self_sv);
+
+        /*
+        if (!(items % 2)) croak("Uneven args list given!");
+
+        wasm_limits_t limits = { NULL };
+
+        for (I32 i=1; i<items; i += 2) {
+            const char* arg = SvPVbyte_nolen(ST(i));
+
+            if (strEQ(arg, "min")) {
+                limits.min = grok_i32(ST(1 + i));
+            }
+            else if (strEQ(arg, "max")) {
+                limits.max = grok_i32(ST(1 + i));
+            }
+            else {
+                croak("Unrecognized: %" SVf, ST(i));
+            }
+        }
+        */
+
+        memory_import_holder_t* holder = new_memory_import(aTHX);
+
+        RETVAL = ptr_to_svrv(aTHX_ holder, gv_stashpv(IMP_MEMORY_CLASS, FALSE));
+
+    OUTPUT:
+        RETVAL
+
+# ----------------------------------------------------------------------
+
+MODULE = Wasm::Wasmer     PACKAGE = Wasm::Wasmer::Import::Memory
+
+PROTOTYPES: DISABLE
+
+SV*
+set (SV* self_sv, SV* replacement_sv, SV* offset_sv=NULL)
+    CODE:
+        memory_import_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+        memory_set(aTHX_ memory_holder_p->memory, replacement_sv, offset_sv);
+
+        RETVAL = SvREFCNT_inc(self_sv);
+
+    OUTPUT:
+        RETVAL
+
+SV*
+get (SV* self_sv, SV* offset_sv=NULL, SV* length_sv=NULL)
+    CODE:
+        memory_import_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+        RETVAL = memory_get(aTHX_ memory_holder_p->memory, offset_sv, length_sv);
+
+    OUTPUT:
+        RETVAL
+
+UV
+data_size (SV* self_sv)
+    CODE:
+        memory_import_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+        RETVAL = wasm_memory_data_size( memory_holder_p->memory );
+
+    OUTPUT:
+        RETVAL
+
+void
+DESTROY (SV* self_sv)
+    CODE:
+        destroy_memory_import_sv(aTHX_ self_sv);
 
 # ----------------------------------------------------------------------
 
@@ -748,81 +813,24 @@ name (SV* self_sv)
     OUTPUT:
         RETVAL
 
-#define CROAK_MEMORY_STR_EXCESS(offset, len, buflen) \
-    croak( \
-        "offset %" IVdf " + length %" UVuf " = %" UVuf " (exceeds size=%" IVdf ")", \
-        offset, len, offset + len, buflen \
-    )
-
-void
+SV*
 set (SV* self_sv, SV* replacement_sv, SV* offset_sv=NULL)
     CODE:
-        STRLEN replen;
-        char *replacement = SvPVbyte(replacement_sv, replen);
+        memory_export_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
-        UV buflen = memory_sv_data_size(self_sv);
+        memory_set(memory_holder_p->memory, replacement_sv, offset_sv);
 
-        IV offset = offset_sv ? grok_iv(aTHX_ offset_sv) : 0;
+        RETVAL = SvREFCNT_inc(self_sv);
 
-        if (offset < 0) {
-            offset += buflen;
-        }
-
-        IV end_offset = offset + replen;
-
-        if (end_offset > buflen) {
-            CROAK_MEMORY_STR_EXCESS(offset, replen, buflen);
-        }
-
-        char *buf = memory_sv_data(aTHX_ self_sv);
-
-        Copy(replacement, buf + offset, replen, void);
+    OUTPUT:
+        RETVAL
 
 SV*
 get (SV* self_sv, SV* offset_sv=NULL, SV* length_sv=NULL)
     CODE:
-        if (GIMME_V == G_VOID) {
-            croak("get() is useless in void context!");
-        }
+        memory_export_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
-        char *buf = memory_sv_data(aTHX_ self_sv);
-
-        UV buflen = memory_sv_data_size(self_sv);
-
-        if (offset_sv) {
-            IV offset = grok_iv(aTHX_ offset_sv);
-
-            if (offset < 0) {
-                offset += buflen;
-            }
-            else if (offset >= buflen) {
-                croak(
-                    "offset %" IVdf " exceeds size=%" UVuf,
-                    offset,
-                    buflen
-                );
-            }
-
-            UV len;
-
-            if (length_sv) {
-                len = grok_uv(aTHX_ length_sv);
-            }
-            else {
-                len = buflen - offset;
-            }
-
-            UV end_offset = offset + len;
-
-            if (end_offset > buflen) {
-                CROAK_MEMORY_STR_EXCESS(offset, len, buflen);
-            }
-
-            RETVAL = newSVpvn(buf + offset, len);
-        }
-        else {
-            RETVAL = newSVpvn(buf, buflen);
-        }
+        RETVAL = memory_get(memory_holder_p->memory, offset_sv, length_sv);
 
     OUTPUT:
         RETVAL
