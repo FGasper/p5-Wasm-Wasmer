@@ -358,7 +358,7 @@ sub test_func_export_add : Tests(2) {
     return;
 }
 
-sub test_import_memory : Tests(2) {
+sub test_import_memory : Tests(3) {
     my $ok_wat = join(
         "\n",
         '(module',
@@ -395,6 +395,8 @@ sub test_import_memory : Tests(2) {
         },
         'memory written & read',
     );
+
+    is( $mem->get(2, 3), 'llo', 'get() with offset & length' );
 
     return;
 }
