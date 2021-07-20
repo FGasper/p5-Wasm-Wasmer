@@ -358,11 +358,14 @@ sub test_func_export_add : Tests(2) {
     return;
 }
 
-sub test_import_memory : Tests(1) {
+sub test_import_memory : Tests(2) {
     my $ok_wat = join(
         "\n",
         '(module',
-        '   (import "my" "memory" (memory 2))',
+        '   (import "my" "memory" (memory $m 2))',
+        '   (func (export "readbyte") (param $offset i32) (result i32)',
+        '       (i32.load8_u (get_local $offset))',
+        '   )',
         ')',
     );
 
@@ -382,6 +385,15 @@ sub test_import_memory : Tests(1) {
         $mem->set('hello'),
         $mem,
         'set() returns $self',
+    );
+
+    is(
+        $instance,
+        object {
+            call [ call => readbyte => 0 ] => ord('h');
+            call [ call => readbyte => 1 ] => ord('e');
+        },
+        'memory written & read',
     );
 
     return;
