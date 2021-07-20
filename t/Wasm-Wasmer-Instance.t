@@ -358,7 +358,7 @@ sub test_func_export_add : Tests(2) {
     return;
 }
 
-sub test_import_globals : Tests(1) {
+sub test_import_globals_types : Tests(1) {
     my $ok_wat = join(
         "\n",
         '(module',
@@ -398,6 +398,63 @@ sub test_import_globals : Tests(1) {
         },
         'globals set as expected on instantiation',
     );
+}
+
+sub test_import_globals_mutability : Tests(6) {
+    my $ok_wat = join(
+        "\n",
+        '(module',
+        '   (import "mystuff" "myconst" (global $g1 i32))',
+        '   (import "mystuff" "myvar" (global $g2 (mut i32)))',
+        '   (func (export "get_const") (result i32) global.get $g1)',
+        '   (func (export "get_var") (result i32) global.get $g2)',
+        ')',
+    );
+
+    my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
+
+    my $module = Wasm::Wasmer::Module->new($ok_wasm);
+
+    my $const = $module->create_global(5);
+    my $var = $module->create_global(500);
+
+    my $instance = $module->create_instance(
+        {
+            mystuff => {
+                myconst => $const,
+                myvar => $var,
+            },
+        },
+    );
+
+    is(
+        $instance,
+        object {
+            call [ call => 'get_const' ] => 5;
+            call [ call => 'get_var' ] => 500;
+        },
+        'globals set as expected on instantiation',
+    );
+
+    is( $const->get(), 5, 'get() on const' );
+    is( $var->get(), 500, 'get() on var' );
+
+    my $err = dies { $const->set(6) };
+    is(
+        $err,
+        check_set(
+            match( qr<mystuff> ),
+            match( qr<myconst> ),
+            match( qr<global> ),
+        ),
+        'error from set() on a constant',
+    );
+
+    $var->set(600);
+    is( $var->get(), 600, 'set() on a variable import works' );
+    is( $instance->call('get_var'), 600, '… confirmed via WASM accessor' );
+
+    return;
 }
 
 sub test_global_export_types : Tests(2) {

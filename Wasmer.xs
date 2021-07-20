@@ -457,16 +457,19 @@ get (SV* self_sv)
         RETVAL
 
 SV*
-set (SV* self_sv)
+set (SV* self_sv, SV* newval)
     CODE:
         global_import_holder_t* holder = svrv_to_ptr(aTHX_ self_sv);
 
         if (holder->given) {
-            croak("Can’t modify global import’s value prior to instantiation");
+            croak("%" SVf ": can’t set() before instantiation", self_sv);
         }
-        else {
-            RETVAL = global_import_holder_get_sv(aTHX_ holder);
-        }
+
+        global_import_holder_set_sv(aTHX_ holder, newval);
+
+        SvREFCNT_inc(self_sv);
+
+        RETVAL = self_sv;
 
     OUTPUT:
         RETVAL
