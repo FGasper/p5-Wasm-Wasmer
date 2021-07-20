@@ -88,6 +88,11 @@ Undef is equivalent to C<Wasm::Wasmer::WASI-E<gt>new()>.
 The optional %IMPORTS reference (I<reference>!) is as for C<create_instance()>.
 Note that you can override WASI imports with this, if you so desire.
 
+=head2 $global = I<OBJ>->create_global( $VALUE )
+
+Creates a L<Wasm::Wasmer::Import::Global> instance. See that module’s
+documentation for more details.
+
 =head2 $bytes = I<OBJ>->serialize()
 
 Serializes the in-memory module for later use. (cf. C<deserialize()> below)

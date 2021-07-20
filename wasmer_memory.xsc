@@ -4,16 +4,39 @@
 #include "p5_wasm_wasmer.h"
 
 typedef struct {
+    wasm_limits_t given_limits;
+
+    pid_t pid;
+
+    wasm_memory_t* memory;
+    wasm_exporttype_t* export_type;
+} memory_import_holder_t;
+
+memory_import_holder_t* new_memory_import(pTHX_ wasm_limits_t limits) {
+    memory_import_holder_t* holder;
+    Newxz(holder, 1, memory_import_holder_t);
+
+    *holder = (memory_import_holder_t) {
+        .given_limits = limits,
+        .pid = getpid(),
+    };
+
+    return holder;
+}
+
+// ----------------------------------------------------------------------
+
+typedef struct {
     wasm_memory_t* memory;
     wasm_exporttype_t* export_type;
 
     pid_t pid;
 
     SV* instance_sv;
-} memory_holder_t;
+} memory_export_holder_t;
 
 static inline SV* memory_sv_name_sv (pTHX_ SV* self_sv) {
-    memory_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
+    memory_export_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
     const wasm_name_t* name = wasm_exporttype_name(memory_holder_p->export_type);
 
@@ -21,19 +44,19 @@ static inline SV* memory_sv_name_sv (pTHX_ SV* self_sv) {
 }
 
 static inline char* memory_sv_data (pTHX_ SV* self_sv) {
-    memory_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
+    memory_export_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
     return (char*) wasm_memory_data( memory_holder_p->memory );
 }
 
 static inline usize memory_sv_data_size (pTHX_ SV* self_sv) {
-    memory_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
+    memory_export_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
     return wasm_memory_data_size( memory_holder_p->memory );
 }
 
 static inline void destroy_memory_sv (pTHX_ SV* self_sv) {
-    memory_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
+    memory_export_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
     warn_destruct_if_needed(self_sv, memory_holder_p->pid);
 

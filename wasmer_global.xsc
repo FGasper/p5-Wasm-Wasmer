@@ -51,25 +51,23 @@ static inline wasm_global_t* global_import_sv_initialize (pTHX_ SV* global_sv, w
 
     const wasm_valtype_t* type_p = wasm_globaltype_content(type);
 
-    wasm_valkind_t kind = wasm_valtype_kind(type_p);
-
     wasm_val_t val;
 
-    switch (kind) {
+    switch (wasm_valtype_kind(type_p)) {
         case WASM_I32:
-            val = (wasm_val_t) WASM_I32_VAL(SvIV(holder_p->given));
+            val = (wasm_val_t) WASM_I32_VAL(grok_i32(holder_p->given));
             break;
 
         case WASM_I64:
-            val = (wasm_val_t) WASM_I64_VAL(SvIV(holder_p->given));
+            val = (wasm_val_t) WASM_I64_VAL(grok_i64(holder_p->given));
             break;
 
         case WASM_F32:
-            val = (wasm_val_t) WASM_F32_VAL(SvNV(holder_p->given));
+            val = (wasm_val_t) WASM_F32_VAL(grok_f32(holder_p->given));
             break;
 
         case WASM_F64:
-            val = (wasm_val_t) WASM_F64_VAL(SvNV(holder_p->given));
+            val = (wasm_val_t) WASM_F64_VAL(grok_f64(holder_p->given));
             break;
 
         default:

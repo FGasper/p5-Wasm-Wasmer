@@ -435,6 +435,17 @@ create_global (SV* self_sv, SV* value)
     OUTPUT:
         RETVAL
 
+# SV*
+# create_memory (SV* self_sv, ...)
+#     CODE:
+#         PERL_UNUSED_ARG(self_sv);
+#         global_memory_holder_t* holder = new_memory_import(aTHX_ value);
+# 
+#         RETVAL = ptr_to_svrv(aTHX_ holder, gv_stashpv(IMP_GLOBAL_CLASS, FALSE));
+# 
+#     OUTPUT:
+#         RETVAL
+
 # ----------------------------------------------------------------------
 
 MODULE = Wasm::Wasmer     PACKAGE = Wasm::Wasmer::Import::Global
@@ -467,9 +478,7 @@ set (SV* self_sv, SV* newval)
 
         global_import_holder_set_sv(aTHX_ holder, newval);
 
-        SvREFCNT_inc(self_sv);
-
-        RETVAL = self_sv;
+        RETVAL = SvREFCNT_inc(self_sv);
 
     OUTPUT:
         RETVAL
@@ -509,8 +518,8 @@ export_memories (SV* self_sv)
             if (wasm_extern_kind(exports->data[i]) != WASM_EXTERN_MEMORY)
                 continue;
 
-            memory_holder_t* memory_holder;
-            Newx(memory_holder, 1, memory_holder_t);
+            memory_export_holder_t* memory_holder;
+            Newx(memory_holder, 1, memory_export_holder_t);
 
             wasm_memory_t* memory = wasm_extern_as_memory(exports->data[i]);
 
@@ -717,9 +726,7 @@ set (SV* self_sv, SV* newval)
     CODE:
         global_export_sv_set_sv(aTHX_ self_sv, newval);
 
-        SvREFCNT_inc(self_sv);
-
-        RETVAL = self_sv;
+        RETVAL = SvREFCNT_inc(self_sv);
 
     OUTPUT:
         RETVAL

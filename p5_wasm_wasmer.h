@@ -1,6 +1,9 @@
 #ifndef P5_WASM_WASMER_H
 #define P5_WASM_WASMER_H 1
 
+#include <stdlib.h>
+#include <string.h>
+
 #define _IN_GLOBAL_DESTRUCTION (PL_phase == PERL_PHASE_DESTRUCT)
 
 #define warn_destruct_if_needed(sv, startpid) STMT_START { \
@@ -177,6 +180,80 @@ static inline I32 grok_i32 (pTHX_ SV* sv) {
     }
 
     return myiv;
+}
+
+static inline double grok_f64 (pTHX_ SV* sv) {
+    double mydouble = SvNV(sv);
+
+    if (!SvNOK(sv)) {
+        if (SvUOK(sv)) {
+            UV uv = (UV) mydouble;
+            if (uv != SvUV(sv)) {
+                croak("%" SVf " cannot be a 64-bit float!", sv);
+            }
+        }
+        else if (SvIOK(sv)) {
+            IV iv = (IV) mydouble;
+            if (iv != SvIV(sv)) {
+                croak("%" SVf " cannot be a 64-bit float!", sv);
+            }
+        }
+        else {
+            const char *str = form("%g", mydouble);
+            STRLEN mystrlen = strlen(str);
+
+            STRLEN pvlen;
+            const char *svstr = SvPVbyte(sv, pvlen);
+
+            if (pvlen != mystrlen || !memEQ(str, svstr, pvlen)) {
+                croak("%" SVf " cannot be a 64-bit float!", sv);
+            }
+        }
+    }
+
+    return mydouble;
+}
+
+static inline float grok_f32 (pTHX_ SV* sv) {
+    float myfloat;
+
+    if (SvNOK(sv)) {
+        myfloat = (float) SvNV(sv);
+        if (myfloat != SvNV(sv)) {
+            croak("%" SVf " cannot be a 32-bit float!", sv);
+        }
+    }
+    else if (SvUOK(sv)) {
+        myfloat = (float) SvUV(sv);
+        if (myfloat != SvUV(sv)) {
+            croak("%" SVf " cannot be a 32-bit float!", sv);
+        }
+    }
+    else if (SvIOK(sv)) {
+        myfloat = (float) SvUV(sv);
+        if (myfloat != SvIV(sv)) {
+            croak("%" SVf " cannot be a 32-bit float!", sv);
+        }
+    }
+    else if (SvOK(sv)) {
+        STRLEN pvlen;
+        const char *svstr = SvPVbyte(sv, pvlen);
+
+        char *end = (char*) (pvlen + svstr);
+        myfloat = strtof(svstr, &end);
+
+        const char *svstr2 = form("%g", myfloat);
+        STRLEN mystrlen = strlen(svstr2);
+
+        if (pvlen != mystrlen || !memEQ(svstr, svstr2, pvlen)) {
+            croak("%" SVf " cannot be a 32-bit float!", sv);
+        }
+    }
+    else {
+        croak("undef cannot be a 64-bit float!");
+    }
+
+    return myfloat;
 }
 
 static_assert(sizeof(IV) == sizeof(I64), "IV == I64");

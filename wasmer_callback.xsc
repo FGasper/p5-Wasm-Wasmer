@@ -81,7 +81,34 @@ wasm_trap_t* host_func_callback( void* env, const wasm_val_vec_t* args, wasm_val
 
     SPAGAIN;
 
-    if (got_count != results->size) {
+    wasm_trap_t* trap = NULL;
+
+    if (got_count == results->size) {
+        for (I32 g=got_count-1; g >= 0; g--) {
+            wasm_val_t* result = &results->data[g];
+
+            wasm_valkind_t kind = wasm_valtype_kind(callback_holder_p->results.data[g]);
+
+            switch (kind) {
+                case WASM_I32:
+                    *result = (wasm_val_t) WASM_I32_VAL(POPi);
+                    break;
+                case WASM_I64:
+                    *result = (wasm_val_t) WASM_I64_VAL(POPi);
+                    break;
+                case WASM_F32:
+                    *result = (wasm_val_t) WASM_F32_VAL(POPn);
+                    break;
+                case WASM_F64:
+                    *result = (wasm_val_t) WASM_F64_VAL(POPn);
+                    break;
+
+                default:
+                    assert(0);
+            }
+        }
+    }
+    else {
         const char* msg = form(
             "%.*s.%.*s: expected %zu results but received %d",
             (int) callback_holder_p->modname.size,
@@ -95,39 +122,20 @@ wasm_trap_t* host_func_callback( void* env, const wasm_val_vec_t* args, wasm_val
         wasm_byte_vec_t vector;
         wasm_byte_vec_new(&vector, strlen(msg), (wasm_byte_t*) msg);
 
-        wasm_trap_t* trap = wasm_trap_new(
+        trap = wasm_trap_new(
             callback_holder_p->store,
             &vector
         );
 
-        return trap;
+        while (got_count--) (void) POPs;
     }
 
-    for (I32 g=got_count-1; g >= 0; g--) {
-        wasm_val_t* result = &results->data[g];
-
-        wasm_valkind_t kind = wasm_valtype_kind(callback_holder_p->results.data[g]);
-
-        switch (kind) {
-            case WASM_I32:
-                *result = (wasm_val_t) WASM_I32_VAL(POPi);
-                break;
-            case WASM_I64:
-                *result = (wasm_val_t) WASM_I64_VAL(POPi);
-                break;
-            case WASM_F32:
-                *result = (wasm_val_t) WASM_F32_VAL(POPn);
-                break;
-            case WASM_F64:
-                *result = (wasm_val_t) WASM_F64_VAL(POPn);
-                break;
-
-            default:
-                assert(0);
-        }
+    if (args->size) {
+        FREETMPS;
+        LEAVE;
     }
 
-    return NULL;
+    return trap;
 }
 
 void free_callback_holder (void* env) {
