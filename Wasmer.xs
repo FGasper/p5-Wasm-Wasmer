@@ -182,7 +182,7 @@ static inline void _wasi_config_delete( wasi_config_t* config ) {
 
 typedef SV* (*export_to_sv_fp)(pTHX_ SV*, wasm_extern_t*, wasm_exporttype_t*);
 
-static inline export_to_sv_fp get_export_to_sv_t (wasm_externkind_t kind) {
+static inline export_to_sv_fp get_export_to_sv_fp (wasm_externkind_t kind) {
     export_to_sv_fp fp = (
         (kind == WASM_EXTERN_FUNC) ? function_export_to_sv :
         (kind == WASM_EXTERN_MEMORY) ? memory_export_to_sv :
@@ -210,7 +210,7 @@ static unsigned xs_export_kind_list (pTHX_ SV** SP, SV* self_sv, wasm_externkind
 
     SV* possible_export_sv[exports->size];
 
-    export_to_sv_fp export_to_sv = get_export_to_sv_t(kind);
+    export_to_sv_fp export_to_sv = get_export_to_sv_fp(kind);
 
     for (unsigned i = 0; i<exports->size; i++) {
         if (wasm_extern_kind(exports->data[i]) != kind)
@@ -636,7 +636,7 @@ export (SV* self_sv, SV* search_name)
             case WASM_EXTERN_MEMORY:
             case WASM_EXTERN_GLOBAL:
             case WASM_EXTERN_FUNC: {
-                export_to_sv_fp export_to_sv = get_export_to_sv_t(kind);
+                export_to_sv_fp export_to_sv = get_export_to_sv_fp(kind);
 
                 RETVAL = export_to_sv( aTHX_
                     self_sv,
