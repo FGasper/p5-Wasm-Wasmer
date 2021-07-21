@@ -114,29 +114,31 @@ sub test_create_instance__imports_misshapen : Tests(5) {
 
     my $module = Wasm::Wasmer::Module->new($ok_wasm);
 
-    my $err = dies { $module->create_instance( [ 123 ] ) };
+    my $err = dies { $module->create_instance( [123] ) };
 
     is(
         $err,
         check_set(
-            match( qr<ARRAY> ),
-            match( qr<HASH> ),
+            match(qr<ARRAY>),
+            match(qr<HASH>),
         ),
         'imports are arrayref',
     );
 
     $err = dies {
-        $module->create_instance( {
-            my => [ 123 ],
-        } );
+        $module->create_instance(
+            {
+                my => [123],
+            }
+        );
     };
 
     is(
         $err,
         check_set(
-            match( qr<my> ),
-            match( qr<ARRAY> ),
-            match( qr<HASH> ),
+            match(qr<my>),
+            match(qr<ARRAY>),
+            match(qr<HASH>),
         ),
         'import namespace value is arrayref',
     );
@@ -146,8 +148,8 @@ sub test_create_instance__imports_misshapen : Tests(5) {
     is(
         $err,
         check_set(
-            match( qr<my> ),
-            not_in_set( match( qr<func> ) ),
+            match(qr<my>),
+            not_in_set( match(qr<func>) ),
         ),
         'required namespace not given',
     );
@@ -157,22 +159,28 @@ sub test_create_instance__imports_misshapen : Tests(5) {
     is(
         $err,
         check_set(
-            match( qr<my> ),
-            match( qr<func> ),
+            match(qr<my>),
+            match(qr<func>),
         ),
         'required import not given',
     );
 
-    $err = dies { $module->create_instance( { my => {
-        func => [],
-    } } ) };
+    $err = dies {
+        $module->create_instance(
+            {
+                my => {
+                    func => [],
+                }
+            }
+        )
+    };
 
     is(
         $err,
         check_set(
-            match( qr<my> ),
-            match( qr<func> ),
-            match( qr<CODE> ),
+            match(qr<my>),
+            match(qr<func>),
+            match(qr<CODE>),
         ),
         'required import given as wrong type',
     );
@@ -326,6 +334,36 @@ sub test_func_import : Tests(7) {
     return;
 }
 
+sub test_export : Tests(3) {
+    my $ok_wat  = _WAT;
+    my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
+
+    my $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_instance();
+
+    is(
+        $instance,
+        object {
+            call [ export => 'add' ] => object {
+                prop blessed => 'Wasm::Wasmer::Export::Function';
+                call name    => 'add';
+            };
+
+            call [ export => 'varglobal' ] => object {
+                prop blessed => 'Wasm::Wasmer::Export::Global';
+                call name    => 'varglobal';
+            };
+
+            call [ export => 'pagememory' ] => object {
+                prop blessed => 'Wasm::Wasmer::Export::Memory';
+                call name    => 'pagememory';
+            };
+        },
+        'export() method gives expected returns',
+    );
+
+    return;
+}
+
 sub test_func_export_add : Tests(2) {
     my $ok_wat  = _WAT;
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
@@ -396,7 +434,7 @@ sub test_import_memory : Tests(3) {
         'memory written & read',
     );
 
-    is( $mem->get(2, 3), 'llo', 'get() with offset & length' );
+    is( $mem->get( 2, 3 ), 'llo', 'get() with offset & length' );
 
     return;
 }
@@ -459,13 +497,13 @@ sub test_import_globals_mutability : Tests(6) {
     my $module = Wasm::Wasmer::Module->new($ok_wasm);
 
     my $const = $module->create_global(5);
-    my $var = $module->create_global(500);
+    my $var   = $module->create_global(500);
 
     my $instance = $module->create_instance(
         {
             mystuff => {
                 myconst => $const,
-                myvar => $var,
+                myvar   => $var,
             },
         },
     );
@@ -474,27 +512,27 @@ sub test_import_globals_mutability : Tests(6) {
         $instance,
         object {
             call [ call => 'get_const' ] => 5;
-            call [ call => 'get_var' ] => 500;
+            call [ call => 'get_var' ]   => 500;
         },
         'globals set as expected on instantiation',
     );
 
-    is( $const->get(), 5, 'get() on const' );
-    is( $var->get(), 500, 'get() on var' );
+    is( $const->get(), 5,   'get() on const' );
+    is( $var->get(),   500, 'get() on var' );
 
     my $err = dies { $const->set(6) };
     is(
         $err,
         check_set(
-            match( qr<mystuff> ),
-            match( qr<myconst> ),
-            match( qr<global> ),
+            match(qr<mystuff>),
+            match(qr<myconst>),
+            match(qr<global>),
         ),
         'error from set() on a constant',
     );
 
     $var->set(600);
-    is( $var->get(), 600, 'set() on a variable import works' );
+    is( $var->get(),                600, 'set() on a variable import works' );
     is( $instance->call('get_var'), 600, '… confirmed via WASM accessor' );
 
     return;
@@ -608,8 +646,8 @@ sub test_global_export : Tests(8) {
     is(
         $err,
         check_set(
-            match( qr<function> ),
-            match( qr<global> ),
+            match(qr<function>),
+            match(qr<global>),
         ),
         'error when call()ing a global',
     );
@@ -659,9 +697,9 @@ sub test_memory_export : Tests(11) {
                 call name      => 'pagememory';
                 call data_size => 2**16;
                 call [ get => () ], "Hello World!" . ( "\0" x 65524 );
-                call [ get => 0, 12 ] => "Hello World!";
-                call [ get => 6, 12 ] => "World!\0\0\0\0\0\0";
-                call [ set => 'Harry', 6 ] => T();
+                call [ get => 0,       12 ] => "Hello World!";
+                call [ get => 6,       12 ] => "World!\0\0\0\0\0\0";
+                call [ set => 'Harry', 6 ]  => T();
             },
         ],
         'export_memories()',
@@ -671,9 +709,9 @@ sub test_memory_export : Tests(11) {
         [ $instance->export_memories() ],
         [
             object {
-                call [ get => 0, 13 ]           => "Hello Harry!\0";
-                call [ set => 'Sally', 6 ] => T();
-                call [ get => 0, 13 ]           => "Hello Sally!\0";
+                call [ get => 0,       13 ] => "Hello Harry!\0";
+                call [ set => 'Sally', 6 ]  => T();
+                call [ get => 0,       13 ] => "Hello Sally!\0";
 
             },
         ],
