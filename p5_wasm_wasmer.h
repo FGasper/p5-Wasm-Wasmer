@@ -16,7 +16,7 @@ typedef size_t usize;
 } STMT_END
 
 typedef struct {
-    enum wasm_externkind_enum kind;
+    wasm_externkind_t kind;
     const char* description;
 } my_export_description_t;
 
@@ -27,7 +27,7 @@ static my_export_description_t export_descriptions[] = {
     { .kind = WASM_EXTERN_TABLE, .description = "table" },
 };
 
-static inline const char* get_externkind_description(enum wasm_externkind_enum kind) {
+static inline const char* get_externkind_description(wasm_externkind_t kind) {
     unsigned total = sizeof(export_descriptions) / sizeof(my_export_description_t);
     for (unsigned t=0; t<total; t++) {
         if (kind == export_descriptions[t].kind) {

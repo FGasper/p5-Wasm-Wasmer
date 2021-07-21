@@ -187,6 +187,25 @@ typedef struct {
     SV* instance_sv;
 } memory_export_holder_t;
 
+SV* memory_export_to_sv (pTHX_ SV* instance_sv, wasm_extern_t* extern_p, wasm_exporttype_t* export_type_p) {
+    memory_export_holder_t* memory_holder;
+    Newx(memory_holder, 1, memory_export_holder_t);
+
+    wasm_memory_t* memory = wasm_extern_as_memory(extern_p);
+
+    memory_holder->memory = memory;
+    memory_holder->pid = getpid();
+    memory_holder->export_type = export_type_p;
+
+    memory_holder->instance_sv = instance_sv;
+    SvREFCNT_inc(instance_sv);
+
+    return ptr_to_svrv( aTHX_
+        memory_holder,
+        gv_stashpv(EXP_MEMORY_CLASS, FALSE)
+    );
+}
+
 static inline SV* memory_sv_name_sv (pTHX_ SV* self_sv) {
     memory_export_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
 

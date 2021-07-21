@@ -12,6 +12,25 @@ typedef struct {
     SV* instance_sv;
 } function_holder_t;
 
+SV* function_export_to_sv (pTHX_ SV* instance_sv, wasm_extern_t* export_p, wasm_exporttype_t* export_type_p) {
+    function_holder_t* function_holder;
+    Newx(function_holder, 1, function_holder_t);
+
+    wasm_func_t* function = wasm_extern_as_func(export_p);
+
+    function_holder->function = function;
+    function_holder->pid = getpid();
+    function_holder->export_type = export_type_p;
+
+    function_holder->instance_sv = instance_sv;
+    SvREFCNT_inc(instance_sv);
+
+    return ptr_to_svrv( aTHX_
+        function_holder,
+        gv_stashpv(EXP_FUNCTION_CLASS, FALSE)
+    );
+}
+
 static inline SV* function_sv_name_sv (pTHX_ SV* self_sv) {
     function_holder_t* function_holder_p = svrv_to_ptr(aTHX_ self_sv);
 

@@ -114,6 +114,25 @@ static inline SV* global_import_sv_mutability_sv (pTHX_ SV* self_sv) {
 
 // ----------------------------------------------------------------------
 
+SV* global_export_to_sv (pTHX_ SV* instance_sv, wasm_extern_t* export_p, wasm_exporttype_t* export_type_p) {
+    global_export_holder_t* global_holder;
+    Newx(global_holder, 1, global_export_holder_t);
+
+    wasm_global_t* global = wasm_extern_as_global(export_p);
+
+    global_holder->global = global;
+    global_holder->pid = getpid();
+    global_holder->export_type = export_type_p;
+
+    global_holder->instance_sv = instance_sv;
+    SvREFCNT_inc(instance_sv);
+
+    return ptr_to_svrv( aTHX_
+        global_holder,
+        gv_stashpv(EXP_GLOBAL_CLASS, FALSE)
+    );
+}
+
 static inline SV* global_export_sv_name_sv (pTHX_ SV* self_sv) {
     global_export_holder_t* global_holder_p = svrv_to_ptr(aTHX_ self_sv);
 

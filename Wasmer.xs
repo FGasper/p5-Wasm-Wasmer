@@ -180,6 +180,61 @@ static inline void _wasi_config_delete( wasi_config_t* config ) {
     wasi_env_delete(wasienv);
 }
 
+typedef SV* (*export_to_sv_t)(pTHX_ SV*, wasm_extern_t*, wasm_exporttype_t*);
+
+static inline export_to_sv_t get_export_to_sv_t (wasm_externkind_t kind) {
+    export_to_sv_t fp = (
+        (kind == WASM_EXTERN_FUNC) ? function_export_to_sv :
+        (kind == WASM_EXTERN_MEMORY) ? memory_export_to_sv :
+        (kind == WASM_EXTERN_GLOBAL) ? global_export_to_sv :
+        NULL
+    );
+
+    if (!fp) assert(0);
+
+    return fp;
+}
+
+static unsigned xs_export_kind_list (pTHX_ SV** SP, SV* self_sv, wasm_externkind_t kind) {
+    if (GIMME_V != G_ARRAY) croak("List context only!");
+
+    instance_holder_t* instance_holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+    module_holder_t* module_holder_p = svrv_to_ptr(aTHX_ instance_holder_p->module_sv);
+
+    wasm_exporttype_vec_t* export_types = &module_holder_p->export_types;
+
+    wasm_extern_vec_t* exports = &instance_holder_p->exports;
+
+    unsigned return_count = 0;
+
+    SV* possible_export_sv[exports->size];
+
+    export_to_sv_t export_to_sv = get_export_to_sv_t(kind);
+
+    for (unsigned i = 0; i<exports->size; i++) {
+        if (wasm_extern_kind(exports->data[i]) != kind)
+            continue;
+
+        possible_export_sv[return_count] = export_to_sv( aTHX_
+            self_sv,
+            exports->data[i],
+            export_types->data[i]
+        );
+
+        return_count++;
+    }
+
+    if (return_count) {
+        EXTEND(SP, return_count);
+
+        for (unsigned i=0; i<return_count; i++)
+            mPUSHs(possible_export_sv[i]);
+    }
+
+    return return_count;
+}
+
 /* ---------------------------------------------------------------------- */
 
 MODULE = Wasm::Wasmer     PACKAGE = Wasm::Wasmer
@@ -560,170 +615,76 @@ MODULE = Wasm::Wasmer     PACKAGE = Wasm::Wasmer::Instance
 
 PROTOTYPES: DISABLE
 
+SV*
+export (SV* self_sv, SV* search_name)
+    CODE:
+        STRLEN searchlen;
+        const char* search = SvPVutf8(search_name, searchlen);
+        instance_holder_t* instance_holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+        wasm_exporttype_t* export_type_p;
+
+        wasm_extern_t* extern_p = _get_instance_export(
+            instance_holder_p,
+            search, searchlen,
+            &export_type_p
+        );
+
+        switch (wasm_extern_kind(extern_p)) {
+            case WASM_EXTERN_MEMORY:
+                RETVAL = memory_export_to_sv( aTHX_
+                    self_sv,
+                    extern_p,
+                    export_type_p
+                );
+                break;
+
+            case WASM_EXTERN_GLOBAL:
+                RETVAL = global_export_to_sv( aTHX_
+                    self_sv,
+                    extern_p,
+                    export_type_p
+                );
+                break;
+
+            case WASM_EXTERN_FUNC:
+                RETVAL = function_export_to_sv( aTHX_
+                    self_sv,
+                    extern_p,
+                    export_type_p
+                );
+                break;
+
+            default: {
+                const wasm_name_t* name = wasm_exporttype_name(export_type_p);
+
+                const char* typename = get_externkind_description(wasm_extern_kind(extern_p));
+                croak(
+                    "%" SVf " doesn’t support export “%.*s”’s type (%s).",
+                    self_sv,
+                    (int) name->size, name->data,
+                    typename
+                );
+            }
+        }
+
+    OUTPUT:
+        RETVAL
+
 void
 export_memories (SV* self_sv)
     PPCODE:
-        if (GIMME_V != G_ARRAY) croak("List context only!");
-
-        instance_holder_t* instance_holder_p = svrv_to_ptr(aTHX_ self_sv);
-
-        wasm_extern_vec_t* exports = &instance_holder_p->exports;
-
-        module_holder_t* module_holder_p = svrv_to_ptr(aTHX_ instance_holder_p->module_sv);
-
-        wasm_exporttype_vec_t* export_types = &module_holder_p->export_types;
-
-        unsigned return_count = 0;
-
-        SV* possible_memory_sv[exports->size];
-
-        pid_t pid = getpid();
-
-        for (unsigned i = 0; i<exports->size; i++) {
-            if (wasm_extern_kind(exports->data[i]) != WASM_EXTERN_MEMORY)
-                continue;
-
-            memory_export_holder_t* memory_holder;
-            Newx(memory_holder, 1, memory_export_holder_t);
-
-            wasm_memory_t* memory = wasm_extern_as_memory(exports->data[i]);
-
-            memory_holder->memory = memory;
-            memory_holder->pid = pid;
-            memory_holder->export_type = export_types->data[i];
-
-            memory_holder->instance_sv = self_sv;
-            SvREFCNT_inc(memory_holder->instance_sv);
-
-            possible_memory_sv[return_count] = _ptr_to_svrv( aTHX_
-                memory_holder,
-                gv_stashpv(EXP_MEMORY_CLASS, FALSE)
-            );
-
-            return_count++;
-        }
-
-        if (return_count) {
-            EXTEND(SP, return_count);
-
-            for (unsigned i=0; i<return_count; i++)
-                mPUSHs(possible_memory_sv[i]);
-
-            XSRETURN(return_count);
-        }
-        else {
-            XSRETURN_EMPTY;
-        }
+        XSRETURN( xs_export_kind_list(aTHX_ SP, self_sv, WASM_EXTERN_MEMORY) );
 
 void
 export_globals (SV* self_sv)
     PPCODE:
-        if (GIMME_V != G_ARRAY) croak("List context only!");
-
-        instance_holder_t* instance_holder_p = svrv_to_ptr(aTHX_ self_sv);
-
-        wasm_extern_vec_t* exports = &instance_holder_p->exports;
-
-        module_holder_t* module_holder_p = svrv_to_ptr(aTHX_ instance_holder_p->module_sv);
-
-        wasm_exporttype_vec_t* export_types = &module_holder_p->export_types;
-
-        unsigned return_count = 0;
-
-        SV* possible_global_sv[exports->size];
-
-        pid_t pid = getpid();
-
-        for (unsigned i = 0; i<exports->size; i++) {
-            if (wasm_extern_kind(exports->data[i]) != WASM_EXTERN_GLOBAL)
-                continue;
-
-            global_export_holder_t* global_holder;
-            Newx(global_holder, 1, global_export_holder_t);
-
-            wasm_global_t* global = wasm_extern_as_global(exports->data[i]);
-
-            global_holder->global = global;
-            global_holder->pid = pid;
-            global_holder->export_type = export_types->data[i];
-
-            global_holder->instance_sv = self_sv;
-            SvREFCNT_inc(self_sv);
-
-            possible_global_sv[return_count] = _ptr_to_svrv( aTHX_
-                global_holder,
-                gv_stashpv(EXP_GLOBAL_CLASS, FALSE)
-            );
-
-            return_count++;
-        }
-
-        if (return_count) {
-            EXTEND(SP, return_count);
-
-            for (unsigned i=0; i<return_count; i++)
-                mPUSHs(possible_global_sv[i]);
-
-            XSRETURN(return_count);
-        }
-        else {
-            XSRETURN_EMPTY;
-        }
+        XSRETURN( xs_export_kind_list(aTHX_ SP, self_sv, WASM_EXTERN_GLOBAL) );
 
 void
 export_functions (SV* self_sv)
     PPCODE:
-        if (GIMME_V != G_ARRAY) croak("List context only!");
-
-        instance_holder_t* instance_holder_p = svrv_to_ptr(aTHX_ self_sv);
-
-        module_holder_t* module_holder_p = svrv_to_ptr(aTHX_ instance_holder_p->module_sv);
-
-        wasm_exporttype_vec_t* export_types = &module_holder_p->export_types;
-
-        wasm_extern_vec_t* exports = &instance_holder_p->exports;
-
-        unsigned return_count = 0;
-
-        SV* possible_function_sv[exports->size];
-
-        pid_t pid = getpid();
-
-        for (unsigned i = 0; i<exports->size; i++) {
-            if (wasm_extern_kind(exports->data[i]) != WASM_EXTERN_FUNC)
-                continue;
-
-            function_holder_t* function_holder;
-            Newx(function_holder, 1, function_holder_t);
-
-            wasm_func_t* function = wasm_extern_as_func(exports->data[i]);
-
-            function_holder->function = function;
-            function_holder->pid = pid;
-            function_holder->export_type = export_types->data[i];
-
-            function_holder->instance_sv = self_sv;
-            SvREFCNT_inc(function_holder->instance_sv);
-
-            possible_function_sv[return_count] = _ptr_to_svrv( aTHX_
-                function_holder,
-                gv_stashpv(EXP_FUNCTION_CLASS, FALSE)
-            );
-
-            return_count++;
-        }
-
-        if (return_count) {
-            EXTEND(SP, return_count);
-
-            for (unsigned i=0; i<return_count; i++)
-                mPUSHs(possible_function_sv[i]);
-
-            XSRETURN(return_count);
-        }
-        else {
-            XSRETURN_EMPTY;
-        }
+        XSRETURN( xs_export_kind_list(aTHX_ SP, self_sv, WASM_EXTERN_FUNC) );
 
 void
 call (SV* self_sv, SV* funcname_sv, ...)
