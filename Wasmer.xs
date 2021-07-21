@@ -180,10 +180,10 @@ static inline void _wasi_config_delete( wasi_config_t* config ) {
     wasi_env_delete(wasienv);
 }
 
-typedef SV* (*export_to_sv_t)(pTHX_ SV*, wasm_extern_t*, wasm_exporttype_t*);
+typedef SV* (*export_to_sv_fp)(pTHX_ SV*, wasm_extern_t*, wasm_exporttype_t*);
 
-static inline export_to_sv_t get_export_to_sv_t (wasm_externkind_t kind) {
-    export_to_sv_t fp = (
+static inline export_to_sv_fp get_export_to_sv_t (wasm_externkind_t kind) {
+    export_to_sv_fp fp = (
         (kind == WASM_EXTERN_FUNC) ? function_export_to_sv :
         (kind == WASM_EXTERN_MEMORY) ? memory_export_to_sv :
         (kind == WASM_EXTERN_GLOBAL) ? global_export_to_sv :
@@ -210,7 +210,7 @@ static unsigned xs_export_kind_list (pTHX_ SV** SP, SV* self_sv, wasm_externkind
 
     SV* possible_export_sv[exports->size];
 
-    export_to_sv_t export_to_sv = get_export_to_sv_t(kind);
+    export_to_sv_fp export_to_sv = get_export_to_sv_t(kind);
 
     for (unsigned i = 0; i<exports->size; i++) {
         if (wasm_extern_kind(exports->data[i]) != kind)
@@ -630,30 +630,20 @@ export (SV* self_sv, SV* search_name)
             &export_type_p
         );
 
-        switch (wasm_extern_kind(extern_p)) {
+        wasm_externkind_t kind = wasm_extern_kind(extern_p);
+
+        switch (kind) {
             case WASM_EXTERN_MEMORY:
-                RETVAL = memory_export_to_sv( aTHX_
-                    self_sv,
-                    extern_p,
-                    export_type_p
-                );
-                break;
-
             case WASM_EXTERN_GLOBAL:
-                RETVAL = global_export_to_sv( aTHX_
-                    self_sv,
-                    extern_p,
-                    export_type_p
-                );
-                break;
+            case WASM_EXTERN_FUNC: {
+                export_to_sv_fp export_to_sv = get_export_to_sv_t(kind);
 
-            case WASM_EXTERN_FUNC:
-                RETVAL = function_export_to_sv( aTHX_
+                RETVAL = export_to_sv( aTHX_
                     self_sv,
                     extern_p,
                     export_type_p
                 );
-                break;
+            } break;
 
             default: {
                 const wasm_name_t* name = wasm_exporttype_name(export_type_p);
