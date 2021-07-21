@@ -74,6 +74,9 @@ sub test_create : Tests(2) {
 sub test_filesys_nonutf8 : Tests(3) {
     my $baddir = "/foo/\xff\xff\xff";
 
+    my $baddir_utf8 = $baddir;
+    utf8::encode($baddir_utf8);
+
     my $err = dies {
         Wasm::Wasmer::WASI->new(
             preopen_dirs => [$baddir],
@@ -83,10 +86,9 @@ sub test_filesys_nonutf8 : Tests(3) {
     is(
         $err,
         check_set(
-            match(qr<$baddir>),
-            match(qr<utf-?8>i),
+            match(qr<$baddir_utf8>),
         ),
-        'preopen_dirs: error as expected',
+        'preopen_dirs: error as expected (dir is UTF-8 encoded)',
     );
 
     # --------------------------------------------------
@@ -102,10 +104,9 @@ sub test_filesys_nonutf8 : Tests(3) {
     is(
         $err,
         check_set(
-            match(qr<$baddir>),
-            match(qr<utf-?8>i),
+            match(qr<$baddir_utf8>),
         ),
-        'map_dirs: alias has to be UTF-8',
+        'map_dirs: alias is UTF-8 encoded',
     );
 
     $err = dies {
@@ -119,10 +120,10 @@ sub test_filesys_nonutf8 : Tests(3) {
     is(
         $err,
         check_set(
-            match(qr<$baddir>),
-            match(qr<utf-?8>i),
+            match(qr<$baddir_utf8>),
+            match(qr</good/dir>),
         ),
-        'map_dirs: host dir has to be UTF-8',
+        'map_dirs: host dir is UTF-8 encoded',
     );
 
     return;

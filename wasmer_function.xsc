@@ -36,7 +36,7 @@ static inline SV* function_sv_name_sv (pTHX_ SV* self_sv) {
 
     const wasm_name_t* name = wasm_exporttype_name(function_holder_p->export_type);
 
-    return newSVpvn( name->data, name->size );
+    return newSVpvn_flags( name->data, name->size, SVf_UTF8 );
 }
 
 static inline void destroy_function_sv (pTHX_ SV* self_sv) {

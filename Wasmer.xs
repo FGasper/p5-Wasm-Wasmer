@@ -267,7 +267,7 @@ SV*
 wat2wasm ( SV* wat_sv )
     CODE:
         STRLEN watlen;
-        const char* wat = SvPVbyte(wat_sv, watlen);
+        const char* wat = SvPVutf8(wat_sv, watlen);
 
         wasm_byte_vec_t watvec;
         wasm_byte_vec_new(&watvec, watlen, wat);
@@ -680,7 +680,7 @@ void
 call (SV* self_sv, SV* funcname_sv, ...)
     PPCODE:
         STRLEN funcname_len;
-        const char* funcname = SvPVbyte(funcname_sv, funcname_len);
+        const char* funcname = SvPVutf8(funcname_sv, funcname_len);
 
         unsigned given_args_count = items - 2;
 
@@ -857,7 +857,7 @@ SV*
 _new (SV* classname_sv, SV* wasiname_sv, SV* opts_hr=NULL)
     CODE:
         const char* classname = SvPVbyte_nolen(classname_sv);
-        const char* wasiname = SvPVbyte_nolen(wasiname_sv);
+        const char* wasiname = SvPVutf8_nolen(wasiname_sv);
 
         wasi_config_t* config = wasi_config_new(wasiname);
 
@@ -874,7 +874,7 @@ _new (SV* classname_sv, SV* wasiname_sv, SV* opts_hr=NULL)
                 for (UV i=0; i<av_len; i++) {
                     SV *arg = *(av_fetch(args, i, 0));
 
-                    wasi_config_arg(config, SvPVbyte_nolen(arg));
+                    wasi_config_arg(config, SvPVutf8_nolen(arg));
                 }
             }
 
@@ -927,8 +927,8 @@ _new (SV* classname_sv, SV* wasiname_sv, SV* opts_hr=NULL)
                 SSize_t av_len = 1 + av_top_index(env);
 
                 for (UV i=0; i<av_len; i += 2) {
-                    const char *key = SvPVbyte_nolen( *(av_fetch(env, i, 0) ) );
-                    const char *value = SvPVbyte_nolen( *(av_fetch(env, 1 + i, 0) ) );
+                    const char *key = SvPVutf8_nolen( *(av_fetch(env, i, 0) ) );
+                    const char *value = SvPVutf8_nolen( *(av_fetch(env, 1 + i, 0) ) );
 
                     wasi_config_env(config, key, value);
                 }
@@ -942,7 +942,7 @@ _new (SV* classname_sv, SV* wasiname_sv, SV* opts_hr=NULL)
 
                 for (UV i=0; i<av_len; i++) {
                     SV* dir = *(av_fetch(dirs, i, 0));
-                    bool ok = wasi_config_preopen_dir(config, SvPVbyte_nolen(dir));
+                    bool ok = wasi_config_preopen_dir(config, SvPVutf8_nolen(dir));
                     if (!ok) {
                         _wasi_config_delete(config);
                         _croak_if_wasmer_error("Failed to preopen directory %" SVf, dir);
@@ -961,14 +961,14 @@ _new (SV* classname_sv, SV* wasiname_sv, SV* opts_hr=NULL)
                     SV* key = hv_iterkeysv(h_entry);
                     SV* value = hv_iterval(map, h_entry);
 
-                    const char* keystr = SvPVbyte_nolen(key);
-                    const char* valuestr = SvPVbyte_nolen(value);
+                    const char* keystr = SvPVutf8_nolen(key);
+                    const char* valuestr = SvPVutf8_nolen(value);
 
                     bool ok = wasi_config_mapdir( config, keystr, valuestr );
 
                     if (!ok) {
                         _wasi_config_delete(config);
-                        _croak_if_wasmer_error("Failed to map alias %" SVf " to directory %" SVf, key, value);
+                        _croak_if_wasmer_error("Failed to map alias %s to directory %s", keystr, valuestr);
                     }
                 }
             }

@@ -138,7 +138,7 @@ static inline SV* global_export_sv_name_sv (pTHX_ SV* self_sv) {
 
     const wasm_name_t* name = wasm_exporttype_name(global_holder_p->export_type);
 
-    return newSVpvn( name->data, name->size );
+    return newSVpvn_flags( name->data, name->size, SVf_UTF8 );
 }
 
 wasm_mutability_t _get_export_mutability (global_export_holder_t* global_holder_p) {

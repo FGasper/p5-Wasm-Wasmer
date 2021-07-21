@@ -211,7 +211,7 @@ static inline SV* memory_sv_name_sv (pTHX_ SV* self_sv) {
 
     const wasm_name_t* name = wasm_exporttype_name(memory_holder_p->export_type);
 
-    return newSVpvn( name->data, name->size );
+    return newSVpvn_flags( name->data, name->size, SVf_UTF8 );
 }
 
 static inline char* memory_sv_data (pTHX_ SV* self_sv) {

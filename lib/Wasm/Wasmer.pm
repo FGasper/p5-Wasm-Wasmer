@@ -61,6 +61,15 @@ a similar project to Wasmer.
 
 L<Wasm> provides syntactic sugar around Wasm::Wasmtime.
 
+=head1 FUNCTIONS
+
+This namespace defines the following:
+
+=head2 $bin = wat2wasm( $TEXT )
+
+Converts WASM text format to its binary-format equivalent. $TEXT
+should be (character-decoded) text.
+
 =cut
 
 1;
