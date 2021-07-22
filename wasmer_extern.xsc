@@ -25,4 +25,14 @@ SV* extern_to_sv (pTHX_ SV* creator_sv, wasm_extern_t* extern_p, const char* cla
     return ptr_to_svrv( aTHX_ holder_p, stash );
 }
 
+void destroy_extern_sv (pTHX_ SV* self_sv) {
+    extern_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+    warn_destruct_if_needed(self_sv, holder_p->pid);
+
+    SvREFCNT_dec( holder_p->creator_sv );
+
+    Safefree(holder_p);
+}
+
 #endif

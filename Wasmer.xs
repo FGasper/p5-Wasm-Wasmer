@@ -63,14 +63,9 @@ fprintf(stderr, "_call_wasm start\n");
     unsigned results_count = results->size;
 
     wasm_valkind_t param_kind[given_args_count];
-    wasm_valkind_t result_kind[results_count];
 
     for (unsigned i=0; i<params->size; i++) {
         param_kind[i] = wasm_valtype_kind(params->data[i]);
-    }
-
-    for (unsigned i=0; i<results->size; i++) {
-        result_kind[i] = wasm_valtype_kind(results->data[i]);
     }
 
     wasm_functype_delete(functype);
@@ -307,20 +302,10 @@ create_i32_const (SV* self_sv, SV* value_sv)
             assert(0 /* Failed to create global */);
         }
 
-        global_holder_t* holder_p;
-        Newxz(holder_p, 1, global_holder_t);
-
-        *holder_p = (global_holder_t) {
-            .global = global,
-            .pid = getpid(),
-            .creator_sv = self_sv,
-        };
-
-        SvREFCNT_inc(self_sv);
-
-        RETVAL = ptr_to_svrv( aTHX_
-            holder_p,
-            gv_stashpv(GLOBAL_CLASS, FALSE)
+        RETVAL = extern_to_sv( aTHX_
+            self_sv,
+            wasm_global_as_extern(global),
+            GLOBAL_CLASS
         );
 
     OUTPUT:
@@ -625,7 +610,7 @@ PROTOTYPES: DISABLE
 SV*
 get (SV* self_sv)
     CODE:
-        global_holder_t* holder = svrv_to_ptr(aTHX_ self_sv);
+        extern_holder_t* holder = svrv_to_ptr(aTHX_ self_sv);
         RETVAL = global_holder_get_sv(aTHX_ holder);
 
     OUTPUT:
@@ -634,7 +619,7 @@ get (SV* self_sv)
 SV*
 set (SV* self_sv, SV* newval)
     CODE:
-        global_holder_t* holder = svrv_to_ptr(aTHX_ self_sv);
+        extern_holder_t* holder = svrv_to_ptr(aTHX_ self_sv);
         global_holder_set_sv(aTHX_ holder, newval);
 
         RETVAL = SvREFCNT_inc(self_sv);

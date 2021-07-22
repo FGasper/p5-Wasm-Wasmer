@@ -126,13 +126,7 @@ static inline usize memory_sv_data_size (pTHX_ SV* self_sv) {
 }
 
 static inline void destroy_memory_sv (pTHX_ SV* self_sv) {
-    extern_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
-
-    warn_destruct_if_needed(self_sv, holder_p->pid);
-
-    SvREFCNT_dec( holder_p->creator_sv );
-
-    Safefree(holder_p);
+    destroy_global_sv(aTHX_ self_sv);
 }
 
 #endif

@@ -301,8 +301,8 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
                 SV* import_sv = _get_import_global(aTHX_ imports_hv, modname, name, false);
 
                 if (import_sv) {
-                    global_holder_t* holder_p = svrv_to_ptr(aTHX_ import_sv);
-                    cur_extern_p = wasm_global_as_extern(holder_p->global);
+                    extern_holder_t* holder_p = svrv_to_ptr(aTHX_ import_sv);
+                    cur_extern_p = holder_p->extern_p;
                 }
                 else {
                     cur_extern_p = (wasm_extern_t*) _get_host_import(host_imports, modname, name);
@@ -315,11 +315,7 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
             } break;
 
             case WASM_EXTERN_MEMORY: {
-                const wasm_memorytype_t* mtype = wasm_externtype_as_memorytype_const(externtype);
-
                 SV* import_sv = _get_import_memory(aTHX_ imports_hv, modname, name, false);
-
-                wasm_memory_t* memory;
 
                 if (import_sv) {
                     extern_holder_t* holder_p = svrv_to_ptr(aTHX_ import_sv);
