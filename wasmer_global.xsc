@@ -5,14 +5,14 @@
 
 typedef struct {
     wasm_global_t* global;
-    SV* store_sv;
+    SV* creator_sv;
     pid_t pid;
 } global_holder_t;
 
 
 // ----------------------------------------------------------------------
 
-SV* global_export_to_sv (pTHX_ SV* store_sv, wasm_extern_t* export_p) {
+SV* global_export_to_sv (pTHX_ SV* creator_sv, wasm_extern_t* export_p) {
     wasm_global_t* global = wasm_extern_as_global(export_p);
 
     global_holder_t* global_holder;
@@ -20,11 +20,11 @@ SV* global_export_to_sv (pTHX_ SV* store_sv, wasm_extern_t* export_p) {
 
     *global_holder = (global_holder_t) {
         .global = global,
-        .store_sv = store_sv,
+        .creator_sv = creator_sv,
         .pid = getpid(),
     };
 
-    SvREFCNT_inc(store_sv);
+    SvREFCNT_inc(creator_sv);
 
     return ptr_to_svrv( aTHX_
         global_holder,
@@ -74,7 +74,7 @@ static inline void destroy_global_sv (pTHX_ SV* self_sv) {
 
     warn_destruct_if_needed(self_sv, global_holder_p->pid);
 
-    SvREFCNT_dec( global_holder_p->store_sv );
+    SvREFCNT_dec( global_holder_p->creator_sv );
 
     Safefree(global_holder_p);
 }

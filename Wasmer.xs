@@ -313,7 +313,7 @@ create_i32_const (SV* self_sv, SV* value_sv)
         *holder_p = (global_holder_t) {
             .global = global,
             .pid = getpid(),
-            .store_sv = self_sv,
+            .creator_sv = self_sv,
         };
 
         SvREFCNT_inc(self_sv);
@@ -357,9 +357,7 @@ create_memory (SV* self_sv, ...)
 
         store_holder_t* s_holder = svrv_to_ptr(self_sv);
 
-        memory_holder_t* holder = new_memory_import(aTHX_ s_holder->store, &limits);
-
-        RETVAL = ptr_to_svrv(aTHX_ holder, gv_stashpv(MEMORY_CLASS, FALSE));
+        RETVAL = new_memory_import_sv(aTHX_ self_sv, &limits);
 
     OUTPUT:
         RETVAL
@@ -546,7 +544,6 @@ export (SV* self_sv, SV* search_name)
             search, searchlen,
             &export_type_p
         );
-    fprintf(stderr, "Export: %p\n", extern_p);
 
         wasm_externkind_t kind = wasm_extern_kind(extern_p);
 
@@ -555,7 +552,6 @@ export (SV* self_sv, SV* search_name)
             case WASM_EXTERN_GLOBAL:
             case WASM_EXTERN_FUNC: {
                 export_to_sv_fp export_to_sv = get_export_to_sv_fp(kind);
-    fprintf(stderr, "Export2sv: %p\n", export_to_sv);
 
                 RETVAL = export_to_sv( aTHX_ self_sv, extern_p );
             } break;
@@ -572,7 +568,6 @@ export (SV* self_sv, SV* search_name)
                 );
             }
         }
-        fprintf(stderr, "end/export\n");
 
     OUTPUT:
         RETVAL
@@ -669,9 +664,9 @@ PROTOTYPES: DISABLE
 SV*
 set (SV* self_sv, SV* replacement_sv, SV* offset_sv=NULL)
     CODE:
-        memory_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
+        extern_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
 
-        memory_set(holder_p->memory, replacement_sv, offset_sv);
+        memory_set(holder_p, replacement_sv, offset_sv);
 
         RETVAL = SvREFCNT_inc(self_sv);
 
@@ -681,9 +676,13 @@ set (SV* self_sv, SV* replacement_sv, SV* offset_sv=NULL)
 SV*
 get (SV* self_sv, SV* offset_sv=NULL, SV* length_sv=NULL)
     CODE:
-        memory_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
+        if (GIMME_V == G_VOID) {
+            croak("get() is useless in void context!");
+        }
 
-        RETVAL = memory_get(holder_p->memory, offset_sv, length_sv);
+        extern_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+        RETVAL = memory_get(holder_p, offset_sv, length_sv);
 
     OUTPUT:
         RETVAL
@@ -720,38 +719,6 @@ void
 DESTROY (SV* self_sv)
     CODE:
         destroy_function_sv(aTHX_ self_sv);
-
-# ----------------------------------------------------------------------
-
-MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Export::Global
-
-SV*
-name (SV* self_sv)
-    CODE:
-        RETVAL = global_export_sv_name_sv(aTHX_ self_sv);
-
-    OUTPUT:
-        RETVAL
-
-
-
-SV*
-get (SV* self_sv)
-    CODE:
-        RETVAL = global_export_sv_get_sv(aTHX_ self_sv);
-
-    OUTPUT:
-        RETVAL
-
-SV*
-set (SV* self_sv, SV* newval)
-    CODE:
-        global_export_sv_set_sv(aTHX_ self_sv, newval);
-
-        RETVAL = SvREFCNT_inc(self_sv);
-
-    OUTPUT:
-        RETVAL
 
 # ----------------------------------------------------------------------
 

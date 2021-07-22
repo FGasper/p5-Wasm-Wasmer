@@ -7,11 +7,11 @@
 
 typedef struct {
     wasm_func_t* func;
-    SV* store_sv;
+    SV* creator_sv;
     pid_t pid;
 } func_holder_t;
 
-SV* function_export_to_sv (pTHX_ SV* store_sv, wasm_extern_t* export_p) {
+SV* function_export_to_sv (pTHX_ SV* creator_sv, wasm_extern_t* export_p) {
     wasm_func_t* func = wasm_extern_as_func(export_p);
 
     func_holder_t* holder_p;
@@ -19,11 +19,11 @@ SV* function_export_to_sv (pTHX_ SV* store_sv, wasm_extern_t* export_p) {
 
     *holder_p = (func_holder_t) {
         .func = func,
-        .store_sv = store_sv,
+        .creator_sv = creator_sv,
         .pid = getpid(),
     };
 
-    SvREFCNT_inc(store_sv);
+    SvREFCNT_inc(creator_sv);
 
     HV* stash = gv_stashpv(FUNCTION_CLASS, 0);
 
@@ -35,7 +35,7 @@ static inline void destroy_function_sv (pTHX_ SV* self_sv) {
 
     warn_destruct_if_needed(self_sv, function_holder_p->pid);
 
-    SvREFCNT_dec( function_holder_p->store_sv );
+    SvREFCNT_dec( function_holder_p->creator_sv );
 
     Safefree(function_holder_p);
 }

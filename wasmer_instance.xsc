@@ -322,8 +322,8 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
                 wasm_memory_t* memory;
 
                 if (import_sv) {
-                    memory_holder_t* holder_p = svrv_to_ptr(aTHX_ import_sv);
-                    cur_extern_p = wasm_memory_as_extern(holder_p->memory);
+                    extern_holder_t* holder_p = svrv_to_ptr(aTHX_ import_sv);
+                    cur_extern_p = holder_p->extern_p;
                 }
                 else {
                     cur_extern_p = (wasm_extern_t*) _get_host_import(host_imports, modname, name);
