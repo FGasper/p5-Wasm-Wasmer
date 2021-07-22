@@ -1,3 +1,6 @@
+#ifndef WASMER_CALLBACK
+#define WASMER_CALLBACK 1
+
 typedef struct {
     CV* coderef;
 
@@ -13,12 +16,17 @@ typedef struct {
     wasm_valtype_vec_t results;
 } callback_holder_t;
 
+#if WASM_WASMER_MUST_STORE_PERL
+#define _CALLBACK_REVIVE_THX(callback_holder_p) \
+    pTHX = callback_holder_p->aTHX;
+#else
+#define _CALLBACK_REVIVE_THX(x)
+#endif
+
 wasm_trap_t* host_func_callback( void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results ) {
     callback_holder_t* callback_holder_p = (callback_holder_t*) env;
 
-#if WASM_WASMER_MUST_STORE_PERL
-    pTHX = callback_holder_p->aTHX;
-#endif
+    _CALLBACK_REVIVE_THX(callback_holder_p);
 
     dSP;
 
@@ -33,27 +41,9 @@ wasm_trap_t* host_func_callback( void* env, const wasm_val_vec_t* args, wasm_val
         EXTEND(SP, args->size);
 
         for (unsigned i=0; i<args->size; i++) {
-            SV* arg_sv;
-
             wasm_val_t arg = args->data[i];
 
-            switch (arg.kind) {
-                case WASM_I32:
-                    arg_sv = newSViv( arg.of.i32 );
-                    break;
-                case WASM_I64:
-                    arg_sv = newSViv( arg.of.i64 );
-                    break;
-                case WASM_F32:
-                    arg_sv = newSVnv( arg.of.f32 );
-                    break;
-                case WASM_F64:
-                    arg_sv = newSVnv( arg.of.f64 );
-                    break;
-                default:
-                    arg_sv = NULL; /* silence warning */
-                    assert(0);
-            }
+            SV* arg_sv = ww_val2sv(aTHX_ &arg);
 
             mPUSHs(arg_sv);
         }
@@ -89,23 +79,7 @@ wasm_trap_t* host_func_callback( void* env, const wasm_val_vec_t* args, wasm_val
 
             wasm_valkind_t kind = wasm_valtype_kind(callback_holder_p->results.data[g]);
 
-            switch (kind) {
-                case WASM_I32:
-                    *result = (wasm_val_t) WASM_I32_VAL(POPi);
-                    break;
-                case WASM_I64:
-                    *result = (wasm_val_t) WASM_I64_VAL(POPi);
-                    break;
-                case WASM_F32:
-                    *result = (wasm_val_t) WASM_F32_VAL(POPn);
-                    break;
-                case WASM_F64:
-                    *result = (wasm_val_t) WASM_F64_VAL(POPn);
-                    break;
-
-                default:
-                    assert(0);
-            }
+            *result = grok_wasm_val(aTHX_ kind, POPs);
         }
     }
     else {
@@ -141,11 +115,11 @@ wasm_trap_t* host_func_callback( void* env, const wasm_val_vec_t* args, wasm_val
 void free_callback_holder (void* env) {
     callback_holder_t* callback_holder_p = (callback_holder_t*) env;
 
-#if WASM_WASMER_MUST_STORE_PERL
-    pTHX = callback_holder_p->aTHX;
-#endif
+    _CALLBACK_REVIVE_THX(callback_holder_p);
 
     SvREFCNT_dec((SV*) callback_holder_p->coderef);
 
     Safefree(callback_holder_p);
 }
+
+#endif

@@ -2,7 +2,7 @@ package Wasm::Wasmer;
 
 # TODO: better plan for these
 use Wasm::Wasmer::Function;
-use Wasm::Wasmer::Module;
+use Wasm::Wasmer::Memory;
 use Wasm::Wasmer::Global;
 use Wasm::Wasmer::Store;
 use Wasm::Wasmer::Module;

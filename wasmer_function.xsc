@@ -11,7 +11,14 @@ SV* function_to_sv (pTHX_ SV* creator_sv, wasm_extern_t* export_p) {
     return extern_to_sv(aTHX_ creator_sv, export_p, FUNCTION_CLASS);
 }
 
-wasm_func_t* function_from_coderef (pTHX_ CV* coderef, const wasm_externtype_t* externtype, wasm_name_t* ) {
+#define xsh_new_heap_struct(var, type, literal) STMT_START { \
+    type* var;              \
+    Newx(var, 1, type);     \
+                            \
+    *var = (type) literal;  \
+} STMT_END
+
+wasm_func_t* function_from_coderef (pTHX_ wasm_store_t* store, CV* coderef, const wasm_externtype_t* externtype, const wasm_name_t* modname, const wasm_name_t* funcname) {
     const wasm_functype_t* functype = wasm_externtype_as_functype_const(externtype);
     const wasm_valtype_vec_t* params = wasm_functype_params(functype);
     const wasm_valtype_vec_t* results = wasm_functype_results(functype);
@@ -23,7 +30,7 @@ wasm_func_t* function_from_coderef (pTHX_ CV* coderef, const wasm_externtype_t* 
         .store = store,
         .coderef = coderef,
         .modname = *modname,
-        .funcname = *name,
+        .funcname = *funcname,
 
 #if WASM_WASMER_MUST_STORE_PERL
         .aTHX = aTHX,
@@ -35,10 +42,13 @@ wasm_func_t* function_from_coderef (pTHX_ CV* coderef, const wasm_externtype_t* 
         results
     );
 
-    own wasm_functype_t* host_func_type = wasm_functype_new((wasm_valtype_vec_t *) params, (wasm_valtype_vec_t *) results);
+    own wasm_functype_t* host_func_type = wasm_functype_new(
+        (wasm_valtype_vec_t *) params,
+        (wasm_valtype_vec_t *) results
+    );
 
     own wasm_func_t* host_func = wasm_func_new_with_env(
-        store_holder_p->store,
+        store,
         host_func_type,
         host_func_callback,
         callback_holder_p,

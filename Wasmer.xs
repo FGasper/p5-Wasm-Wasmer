@@ -22,6 +22,7 @@
 
 #define WASI_CLASS "Wasm::Wasmer::WASI"
 
+#define EXTERN_CLASS "Wasm::Wasmer::Extern"
 #define GLOBAL_CLASS "Wasm::Wasmer::Global"
 #define MEMORY_CLASS "Wasm::Wasmer::Memory"
 #define FUNCTION_CLASS "Wasm::Wasmer::Function"
