@@ -119,17 +119,6 @@ memory_holder_t* new_memory_import(pTHX_ wasm_store_t* store, wasm_limits_t* lim
     return holder;
 }
 
-// ----------------------------------------------------------------------
-
-typedef struct {
-    wasm_memory_t* memory;
-    wasm_exporttype_t* export_type;
-
-    pid_t pid;
-
-    SV* instance_sv;
-} memory_export_holder_t;
-
 SV* memory_export_to_sv (pTHX_ SV* store_sv, wasm_extern_t* export_p) {
     wasm_memory_t* memory = wasm_extern_as_memory(export_p);
 
@@ -148,20 +137,6 @@ SV* memory_export_to_sv (pTHX_ SV* store_sv, wasm_extern_t* export_p) {
         holder_p,
         gv_stashpv(MEMORY_CLASS, FALSE)
     );
-}
-
-static inline SV* memory_sv_name_sv (pTHX_ SV* self_sv) {
-    memory_export_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
-
-    const wasm_name_t* name = wasm_exporttype_name(memory_holder_p->export_type);
-
-    return newSVpvn_flags( name->data, name->size, SVf_UTF8 );
-}
-
-static inline char* memory_sv_data (pTHX_ SV* self_sv) {
-    memory_export_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
-
-    return (char*) wasm_memory_data( memory_holder_p->memory );
 }
 
 static inline usize memory_sv_data_size (pTHX_ SV* self_sv) {

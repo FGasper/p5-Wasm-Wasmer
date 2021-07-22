@@ -26,7 +26,6 @@
 #define MEMORY_CLASS "Wasm::Wasmer::Memory"
 #define FUNCTION_CLASS "Wasm::Wasmer::Function"
 
-#define EXP_MEMORY_CLASS "Wasm::Wasmer::Export::Memory"
 #define EXP_GLOBAL_CLASS "Wasm::Wasmer::Export::Global"
 #define EXP_FUNCTION_CLASS "Wasm::Wasmer::Export::Function"
 
@@ -753,20 +752,6 @@ set (SV* self_sv, SV* newval)
         global_export_sv_set_sv(aTHX_ self_sv, newval);
 
         RETVAL = SvREFCNT_inc(self_sv);
-
-    OUTPUT:
-        RETVAL
-
-
-
-# ----------------------------------------------------------------------
-
-MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Export::Memory
-
-SV*
-name (SV* self_sv)
-    CODE:
-        RETVAL = memory_sv_name_sv(aTHX_ self_sv);
 
     OUTPUT:
         RETVAL
