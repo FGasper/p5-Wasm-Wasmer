@@ -26,7 +26,6 @@
 #define MEMORY_CLASS "Wasm::Wasmer::Memory"
 #define FUNCTION_CLASS "Wasm::Wasmer::Function"
 
-#define IMP_GLOBAL_CLASS "Wasm::Wasmer::Import::Global"
 #define IMP_MEMORY_CLASS "Wasm::Wasmer::Import::Memory"
 #define EXP_MEMORY_CLASS "Wasm::Wasmer::Export::Memory"
 #define EXP_GLOBAL_CLASS "Wasm::Wasmer::Export::Global"
@@ -532,18 +531,6 @@ create_wasi_instance (SV* self_sv, SV* wasi_sv=NULL, SV* imports_sv=NULL)
     OUTPUT:
         RETVAL
 
-## SV*
-## create_global (SV* self_sv, SV* value)
-##     CODE:
-##         PERL_UNUSED_ARG(self_sv);
-##         global_import_holder_t* holder = new_global_import(aTHX_ value);
-## 
-##         RETVAL = ptr_to_svrv(aTHX_ holder, gv_stashpv(IMP_GLOBAL_CLASS, FALSE));
-## 
-##     OUTPUT:
-##         RETVAL
-## 
-
 # ----------------------------------------------------------------------
 
 MODULE = Wasm::Wasmer     PACKAGE = Wasm::Wasmer::Import::Memory
@@ -586,49 +573,6 @@ void
 DESTROY (SV* self_sv)
     CODE:
         destroy_memory_import_sv(aTHX_ self_sv);
-
-# ----------------------------------------------------------------------
-
-MODULE = Wasm::Wasmer     PACKAGE = Wasm::Wasmer::Import::Global
-
-PROTOTYPES: DISABLE
-
-SV*
-get (SV* self_sv)
-    CODE:
-        global_import_holder_t* holder = svrv_to_ptr(aTHX_ self_sv);
-
-        if (holder->given) {
-            RETVAL = newSVsv(holder->given);
-        }
-        else {
-            RETVAL = global_import_holder_get_sv(aTHX_ holder);
-        }
-
-    OUTPUT:
-        RETVAL
-
-SV*
-set (SV* self_sv, SV* newval)
-    CODE:
-        global_import_holder_t* holder = svrv_to_ptr(aTHX_ self_sv);
-
-        if (holder->given) {
-            croak("%" SVf ": can’t set() before instantiation", self_sv);
-        }
-
-        global_import_holder_set_sv(aTHX_ holder, newval);
-
-        RETVAL = SvREFCNT_inc(self_sv);
-
-    OUTPUT:
-        RETVAL
-
-## void
-## DESTROY (SV* self_sv)
-##     CODE:
-##         global_import_holder_t* holder = svrv_to_ptr(aTHX_ self_sv);
-##         destroy_global_import(aTHX_ holder);
 
 # ----------------------------------------------------------------------
 

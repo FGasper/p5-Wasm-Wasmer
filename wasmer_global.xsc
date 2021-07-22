@@ -14,105 +14,10 @@ typedef struct {
 
 typedef struct {
     wasm_global_t* global;
-    wasm_globaltype_t* type;
-    wasm_importtype_t* import_type;
-
-    pid_t pid;
-    SV* given;
-} global_import_holder_t;
-
-typedef struct {
-    wasm_global_t* global;
     SV* store_sv;
     pid_t pid;
 } global_holder_t;
 
-// ----------------------------------------------------------------------
-
-/*
-global_import_holder_t* new_global_import (pTHX_ SV* given) {
-    global_import_holder_t* new;
-    Newxz(new, 1, global_import_holder_t);
-
-    *new = (global_import_holder_t) {
-        .pid = getpid(),
-        .given = newSVsv(given),
-    };
-
-    return new;
-}
-
-void destroy_global_import(pTHX_ global_import_holder_t* holder) {
-    // TODO: warn if needed
-
-    if (holder->given) {
-        SvREFCNT_dec(holder->given);
-    }
-
-    if (holder->global) {
-        //wasm_global_delete(holder->global);
-    }
-}
-
-static inline wasm_global_t* global_import_sv_initialize (pTHX_ SV* global_sv, wasm_importtype_t* import_type, wasm_store_t* store, const wasm_globaltype_t* type) {
-    global_import_holder_t* holder_p = svrv_to_ptr(aTHX_ global_sv);
-
-    const wasm_valtype_t* type_p = wasm_globaltype_content(type);
-
-    wasm_val_t val;
-
-    switch (wasm_valtype_kind(type_p)) {
-        case WASM_I32:
-            val = (wasm_val_t) WASM_I32_VAL(grok_i32(holder_p->given));
-            break;
-
-        case WASM_I64:
-            val = (wasm_val_t) WASM_I64_VAL(grok_i64(holder_p->given));
-            break;
-
-        case WASM_F32:
-            val = (wasm_val_t) WASM_F32_VAL(grok_f32(holder_p->given));
-            break;
-
-        case WASM_F64:
-            val = (wasm_val_t) WASM_F64_VAL(grok_f64(holder_p->given));
-            break;
-
-        default:
-            assert(0);
-    }
-
-    SvREFCNT_dec(holder_p->given);
-    holder_p->given = NULL;
-
-    holder_p->global = wasm_global_new(store, type, &val);
-    if (!holder_p->global) {
-        const wasm_name_t* module = wasm_importtype_module(import_type);
-        const wasm_name_t* name = wasm_importtype_name(import_type);
-
-        _croak_if_wasmer_error(
-            "Failed to create global %.*s.%.*s",
-            (int) module->size, module->data,
-            (int) name->size, name->data
-        );
-
-        croak(
-            "Failed to create global %.*s.%.*s, but no Wasmer error?!?",
-            (int) module->size, module->data,
-            (int) name->size, name->data
-        );
-    }
-
-    holder_p->type = (wasm_globaltype_t*) type;
-    holder_p->import_type = import_type;
-
-    return holder_p->global;
-}
-
-static inline SV* global_import_sv_mutability_sv (pTHX_ SV* self_sv) {
-
-}
-*/
 
 // ----------------------------------------------------------------------
 
@@ -204,28 +109,6 @@ static inline SV* global_export_sv_get_sv (pTHX_ SV* self_sv) {
     global_export_holder_t* global_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
     return _wasm_global_to_sv(aTHX_ global_holder_p->global);
-}
-
-static inline SV* global_import_holder_get_sv (pTHX_ global_import_holder_t* global_holder_p) {
-    return _wasm_global_to_sv(aTHX_ global_holder_p->global);
-}
-
-static inline void global_import_holder_set_sv (pTHX_ global_import_holder_t* global_holder_p, SV* newval) {
-    wasm_global_t* global = global_holder_p->global;
-
-    _wasm_global_set_sv(aTHX_ global, newval);
-
-    if (_WASMER_HAS_ERROR) {
-        const wasm_name_t* module = wasm_importtype_module(global_holder_p->import_type);
-        const wasm_name_t* name = wasm_importtype_name(global_holder_p->import_type);
-        _croak_if_wasmer_error(
-            "Failed to set imported global %.*s.%.*s",
-            (int) module->size, module->data,
-            (int) name->size, name->data
-        );
-
-        assert(0);
-    }
 }
 
 static inline void global_export_sv_set_sv (pTHX_ SV* self_sv, SV* newval) {
