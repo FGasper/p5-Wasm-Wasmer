@@ -5,15 +5,6 @@
 
 typedef struct {
     wasm_global_t* global;
-    wasm_exporttype_t* export_type;
-
-    pid_t pid;
-
-    SV* instance_sv;
-} global_export_holder_t;
-
-typedef struct {
-    wasm_global_t* global;
     SV* store_sv;
     pid_t pid;
 } global_holder_t;
@@ -41,14 +32,6 @@ SV* global_export_to_sv (pTHX_ SV* store_sv, wasm_extern_t* export_p) {
     );
 }
 
-static inline SV* global_export_sv_name_sv (pTHX_ SV* self_sv) {
-    global_export_holder_t* global_holder_p = svrv_to_ptr(aTHX_ self_sv);
-
-    const wasm_name_t* name = wasm_exporttype_name(global_holder_p->export_type);
-
-    return newSVpvn_flags( name->data, name->size, SVf_UTF8 );
-}
-
 wasm_mutability_t _get_mutability (global_holder_t* global_holder_p) {
 
     own wasm_globaltype_t* gtype = wasm_global_type(global_holder_p->global);
@@ -61,9 +44,9 @@ wasm_mutability_t _get_mutability (global_holder_t* global_holder_p) {
 }
 
 SV* global_sv_mutability_sv (pTHX_ SV* self_sv) {
-    global_export_holder_t* global_holder_p = svrv_to_ptr(aTHX_ self_sv);
+    global_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
 
-    return newSVuv(_get_mutability(global_holder_p));
+    return newSVuv(_get_mutability(holder_p));
 }
 
 static inline SV* _wasm_global_to_sv (pTHX_ wasm_global_t* global) {
@@ -81,49 +64,9 @@ static inline void _wasm_global_set_sv (pTHX_ wasm_global_t* global, SV* newval)
     // the export_type -> extern_type -> global_type business.
     wasm_global_get( global, &val );
 
-    switch (val.kind) {
-        case WASM_I32:
-            val = (wasm_val_t) WASM_I32_VAL(SvIV(newval));
-            break;
-
-        case WASM_I64:
-            val = (wasm_val_t) WASM_I64_VAL(SvIV(newval));
-            break;
-
-        case WASM_F32:
-            val = (wasm_val_t) WASM_F32_VAL(SvNV(newval));
-            break;
-
-        case WASM_F64:
-            val = (wasm_val_t) WASM_F64_VAL(SvNV(newval));
-            break;
-
-        default:
-            assert(0 && "bad global valtype");
-    }
+    val = grok_wasm_val(aTHX_ val.kind, newval);
 
     wasm_global_set(global, &val);
-}
-
-static inline SV* global_export_sv_get_sv (pTHX_ SV* self_sv) {
-    global_export_holder_t* global_holder_p = svrv_to_ptr(aTHX_ self_sv);
-
-    return _wasm_global_to_sv(aTHX_ global_holder_p->global);
-}
-
-static inline void global_export_sv_set_sv (pTHX_ SV* self_sv, SV* newval) {
-    global_export_holder_t* global_holder_p = svrv_to_ptr(aTHX_ self_sv);
-
-    wasm_global_t* global = global_holder_p->global;
-
-    _wasm_global_set_sv(aTHX_ global, newval);
-
-    if (_WASMER_HAS_ERROR) {
-        const wasm_name_t* name = wasm_exporttype_name(global_holder_p->export_type);
-        _croak_if_wasmer_error("Failed to set exported global “%.*s”", (int) name->size, name->data);
-
-        assert(0);
-    }
 }
 
 static inline void destroy_global_sv (pTHX_ SV* self_sv) {
