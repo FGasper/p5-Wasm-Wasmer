@@ -514,6 +514,36 @@ MODULE = Wasm::Wasmer     PACKAGE = Wasm::Wasmer::Instance
 PROTOTYPES: DISABLE
 
 SV*
+export_names_ar (SV* self_sv)
+    CODE:
+        instance_holder_t* instance_holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+        module_holder_t* module_holder_p = svrv_to_ptr(aTHX_ instance_holder_p->module_sv);
+
+        wasm_exporttype_vec_t* export_types = &module_holder_p->export_types;
+
+        AV* ret = newAV();
+        sv_2mortal( (SV*) ret );
+
+        if (export_types->size) {
+            av_extend(ret, export_types->size - 1);
+
+            for (unsigned i = 0; i < export_types->size; i++) {
+                const wasm_name_t* name = wasm_exporttype_name(export_types->data[i]);
+                SV* newsv = newSVpvn_flags(name->data, name->size, SVf_UTF8);
+            sv_dump(newsv);
+                av_store(ret, i, newsv);
+            }
+        }
+
+        SvREFCNT_inc( (SV*) ret );
+
+        RETVAL = newRV_inc( (SV*) ret);
+
+    OUTPUT:
+        RETVAL
+
+SV*
 export (SV* self_sv, SV* search_name)
     CODE:
         STRLEN searchlen;

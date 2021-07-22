@@ -223,6 +223,9 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
                         }
                     } break;
 
+                    // Would it be worthwhile to allow creation of globals
+                    // via plain numbers? Memories from strings?
+
                     default:
                         croak(
                             "Import %.*s.%.*s must be a %s instance, not %" SVf,
@@ -243,10 +246,8 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
             assert(0);
         }
 
-fprintf(stderr, "assign to imports: %p\n", cur_extern_p);
         imports[i] = cur_extern_p;
     }
-fprintf(stderr, "got imports\n");
 
     own wasm_extern_vec_t imports_vec = WASM_ARRAY_VEC(imports);
 
@@ -255,7 +256,6 @@ fprintf(stderr, "got imports\n");
     // actually only creates 0 or 1.
     //
     wasm_trap_t* trap = NULL;
-fprintf(stderr, "get instance\n");
 
     own wasm_instance_t* instance = wasm_instance_new(
         NULL, /* Ignored, per the documentation */
@@ -263,8 +263,6 @@ fprintf(stderr, "get instance\n");
         &imports_vec,
         &trap
     );
-
-fprintf(stderr, "got instance\n");
 
     wasm_extern_vec_t heap_imports;
     wasm_extern_vec_new_uninitialized(&heap_imports, import_types_p->size);
