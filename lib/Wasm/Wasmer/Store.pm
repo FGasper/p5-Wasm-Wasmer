@@ -53,10 +53,6 @@ Currently that includes:
 
 =back
 
-=head2 $yn = I<OBJ>->validate_module( $WASM_BYTES )
-
-Wraps the WASM C API’s L<wasm_module_validate()|https://docs.rs/wasmer-c-api/2.0.0/wasmer_c_api/wasm_c_api/module/fn.wasm_module_validate.html>.
-
 =cut
 
 use Wasm::Wasmer;

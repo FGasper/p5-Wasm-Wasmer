@@ -134,7 +134,7 @@ static SV* _get_import_global( pTHX_ HV* imports_hv, const wasm_name_t* modname,
     SV* import_sv = _get_import_sv(aTHX_ imports_hv, modname, globname, is_needed);
 
     if (import_sv) {
-        if (!sv_isobject(import_sv) || !sv_derived_from(import_sv, IMP_GLOBAL_CLASS)) {
+        if (!sv_isobject(import_sv) || !sv_derived_from(import_sv, GLOBAL_CLASS)) {
             croak(
                 "Import “%.*s.%.*s” must be a %s instance, not %" SVf,
                 (int) modname->size, modname->data,
@@ -297,15 +297,11 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
             } break;
 
             case WASM_EXTERN_GLOBAL: {
-                const wasm_globaltype_t* gtype = wasm_externtype_as_globaltype_const(externtype);
-
                 SV* import_sv = _get_import_global(aTHX_ imports_hv, modname, name, false);
 
-                wasm_global_t* global;
-
                 if (import_sv) {
-                    global = global_import_sv_initialize(aTHX_ import_sv, import_type, module_sv, store_holder_p->store, gtype);
-                    cur_extern_p = wasm_global_as_extern(global);
+                    global_import_holder_t* holder_p = svrv_to_ptr(aTHX_ import_sv);
+                    cur_extern_p = wasm_global_as_extern(holder_p->global);
                 }
                 else {
                     cur_extern_p = (wasm_extern_t*) _get_host_import(host_imports, modname, name);

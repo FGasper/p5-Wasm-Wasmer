@@ -21,6 +21,11 @@
 #define _DEBUG 1
 
 #define WASI_CLASS "Wasm::Wasmer::WASI"
+
+#define GLOBAL_CLASS "Wasm::Wasmer::Global"
+#define MEMORY_CLASS "Wasm::Wasmer::Memory"
+#define FUNCTION_CLASS "Wasm::Wasmer::Function"
+
 #define IMP_GLOBAL_CLASS "Wasm::Wasmer::Import::Global"
 #define IMP_MEMORY_CLASS "Wasm::Wasmer::Import::Memory"
 #define EXP_MEMORY_CLASS "Wasm::Wasmer::Export::Memory"
@@ -180,7 +185,7 @@ static inline void _wasi_config_delete( wasi_config_t* config ) {
     wasi_env_delete(wasienv);
 }
 
-typedef SV* (*export_to_sv_fp)(pTHX_ SV*, wasm_extern_t*, wasm_exporttype_t*);
+typedef SV* (*export_to_sv_fp)(pTHX_ SV*, wasm_extern_t*);
 
 static inline export_to_sv_fp get_export_to_sv_fp (wasm_externkind_t kind) {
     export_to_sv_fp fp = (
@@ -212,14 +217,22 @@ static unsigned xs_export_kind_list (pTHX_ SV** SP, SV* self_sv, wasm_externkind
 
     export_to_sv_fp export_to_sv = get_export_to_sv_fp(kind);
 
+    HV* ret = newHV();
+
+    sv_2mortal( (SV*) ret );
+
     for (unsigned i = 0; i<exports->size; i++) {
         if (wasm_extern_kind(exports->data[i]) != kind)
             continue;
 
-        possible_export_sv[return_count] = export_to_sv( aTHX_
-            self_sv,
-            exports->data[i],
-            export_types->data[i]
+        const wasm_name_t* name = wasm_exporttype_name(export_types->data[i]);
+
+        hv_store(ret, name->data, -name->size,
+            export_to_sv( aTHX_
+                module_holder_p->store_sv,
+                exports->data[i]
+            ),
+            0
         );
 
         return_count++;
@@ -240,28 +253,8 @@ static unsigned xs_export_kind_list (pTHX_ SV** SP, SV* self_sv, wasm_externkind
 MODULE = Wasm::Wasmer     PACKAGE = Wasm::Wasmer
 
 BOOT:
-    newCONSTSUB(gv_stashpv("Wasm::Wasmer", 0), "WASM_EXTERN_FUNC", newSVuv(WASM_EXTERN_FUNC));
     newCONSTSUB(gv_stashpv("Wasm::Wasmer", 0), "WASM_CONST", newSVuv(WASM_CONST));
     newCONSTSUB(gv_stashpv("Wasm::Wasmer", 0), "WASM_VAR", newSVuv(WASM_VAR));
-
-# void
-# check_leaks (SV* wasm_sv)
-#     CODE:
-#         wasm_engine_t* engine = wasm_engine_new();
-#         wasm_store_t* store = wasm_store_new(engine);
-#
-#         STRLEN wasmlen;
-#         const char* wasm = SvPVbyte(wasm_sv, wasmlen);
-#
-#         wasm_byte_vec_t binary;
-#         wasm_byte_vec_new(&binary, wasmlen, wasm);
-#
-#         wasm_module_t* module = wasm_module_new(store, &binary);
-#         wasm_module_delete(module);
-#
-#         wasm_byte_vec_delete(&binary);
-#         wasm_store_delete(store);
-#         wasm_engine_delete(engine);
 
 SV*
 wat2wasm ( SV* wat_sv )
@@ -314,6 +307,92 @@ new (SV* class_sv, ...)
         }
 
         RETVAL = create_store_sv(aTHX_ class_sv, &ST(1), argscount);
+
+    OUTPUT:
+        RETVAL
+
+SV*
+create_i32_const (SV* self_sv, SV* value_sv)
+    ALIAS:
+        create_i32_mut =   1
+        create_i64_const = 2
+        create_i64_mut =   3
+        create_f32_const = 4
+        create_f32_mut =   5
+        create_f64_const = 6
+        create_f64_mut =   7
+    CODE:
+        const wasm_globaltype_t* global_ix2globaltype[] = {
+            wasm_globaltype_new(wasm_valtype_new(WASM_I32), WASM_CONST),
+            wasm_globaltype_new(wasm_valtype_new(WASM_I32), WASM_VAR),
+            wasm_globaltype_new(wasm_valtype_new(WASM_I64), WASM_CONST),
+            wasm_globaltype_new(wasm_valtype_new(WASM_I64), WASM_VAR),
+            wasm_globaltype_new(wasm_valtype_new(WASM_F32), WASM_CONST),
+            wasm_globaltype_new(wasm_valtype_new(WASM_F32), WASM_VAR),
+            wasm_globaltype_new(wasm_valtype_new(WASM_F64), WASM_CONST),
+            wasm_globaltype_new(wasm_valtype_new(WASM_F64), WASM_VAR),
+        };
+
+        const wasm_globaltype_t* gtype = global_ix2globaltype[ix];
+
+        const wasm_valkind_t kind = wasm_valtype_kind(
+            wasm_globaltype_content(gtype)
+        );
+
+        wasm_val_t val = grok_wasm_val(kind, value_sv);
+
+        store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+        wasm_global_t* global = wasm_global_new(
+            store_holder_p->store,
+            gtype,
+            &val
+        );
+        if (!global) {
+            _croak_if_wasmer_error("Failed to create global");
+            assert(0 /* Failed to create global */);
+        }
+
+        RETVAL = ptr_to_svrv( aTHX_
+            global,
+            gv_stashpv(GLOBAL_CLASS, FALSE)
+        );
+
+    OUTPUT:
+        RETVAL
+
+SV*
+create_memory (SV* self_sv, ...)
+    CODE:
+        PERL_UNUSED_ARG(self_sv);
+
+        if (!(items % 2)) croak("Uneven args list given!");
+
+        wasm_limits_t limits = { };
+        bool saw_initial = false;
+
+        for (I32 i=1; i<items; i += 2) {
+            const char* arg = SvPVbyte_nolen(ST(i));
+
+            if (strEQ(arg, "min")) {
+                limits.min = grok_i32(ST(1 + i));
+                saw_initial = true;
+            }
+            else if (strEQ(arg, "max")) {
+                limits.max = grok_i32(ST(1 + i));
+            }
+            else {
+                croak("Unrecognized: %" SVf, ST(i));
+            }
+        }
+
+        if (!saw_initial) croak("Need `initial`");
+
+        store_holder_t* s_holder = svrv_to_ptr(self_sv);
+
+        memory_holder_t* holder = new_memory_import(aTHX_ s_holder->store, &limits);
+
+        RETVAL = ptr_to_svrv(aTHX_ holder, gv_stashpv(MEMORY_CLASS, FALSE));
 
     OUTPUT:
         RETVAL
@@ -480,48 +559,17 @@ create_wasi_instance (SV* self_sv, SV* wasi_sv=NULL, SV* imports_sv=NULL)
     OUTPUT:
         RETVAL
 
-SV*
-create_global (SV* self_sv, SV* value)
-    CODE:
-        PERL_UNUSED_ARG(self_sv);
-        global_import_holder_t* holder = new_global_import(aTHX_ value);
-
-        RETVAL = ptr_to_svrv(aTHX_ holder, gv_stashpv(IMP_GLOBAL_CLASS, FALSE));
-
-    OUTPUT:
-        RETVAL
-
-SV*
-create_memory (SV* self_sv)
-    CODE:
-        PERL_UNUSED_ARG(self_sv);
-
-        /*
-        if (!(items % 2)) croak("Uneven args list given!");
-
-        wasm_limits_t limits = { NULL };
-
-        for (I32 i=1; i<items; i += 2) {
-            const char* arg = SvPVbyte_nolen(ST(i));
-
-            if (strEQ(arg, "min")) {
-                limits.min = grok_i32(ST(1 + i));
-            }
-            else if (strEQ(arg, "max")) {
-                limits.max = grok_i32(ST(1 + i));
-            }
-            else {
-                croak("Unrecognized: %" SVf, ST(i));
-            }
-        }
-        */
-
-        memory_import_holder_t* holder = new_memory_import(aTHX);
-
-        RETVAL = ptr_to_svrv(aTHX_ holder, gv_stashpv(IMP_MEMORY_CLASS, FALSE));
-
-    OUTPUT:
-        RETVAL
+## SV*
+## create_global (SV* self_sv, SV* value)
+##     CODE:
+##         PERL_UNUSED_ARG(self_sv);
+##         global_import_holder_t* holder = new_global_import(aTHX_ value);
+## 
+##         RETVAL = ptr_to_svrv(aTHX_ holder, gv_stashpv(IMP_GLOBAL_CLASS, FALSE));
+## 
+##     OUTPUT:
+##         RETVAL
+## 
 
 # ----------------------------------------------------------------------
 
@@ -603,11 +651,11 @@ set (SV* self_sv, SV* newval)
     OUTPUT:
         RETVAL
 
-void
-DESTROY (SV* self_sv)
-    CODE:
-        global_import_holder_t* holder = svrv_to_ptr(aTHX_ self_sv);
-        destroy_global_import(aTHX_ holder);
+## void
+## DESTROY (SV* self_sv)
+##     CODE:
+##         global_import_holder_t* holder = svrv_to_ptr(aTHX_ self_sv);
+##         destroy_global_import(aTHX_ holder);
 
 # ----------------------------------------------------------------------
 
@@ -629,6 +677,7 @@ export (SV* self_sv, SV* search_name)
             search, searchlen,
             &export_type_p
         );
+    fprintf(stderr, "Export: %p\n", extern_p);
 
         wasm_externkind_t kind = wasm_extern_kind(extern_p);
 
@@ -637,12 +686,9 @@ export (SV* self_sv, SV* search_name)
             case WASM_EXTERN_GLOBAL:
             case WASM_EXTERN_FUNC: {
                 export_to_sv_fp export_to_sv = get_export_to_sv_fp(kind);
+    fprintf(stderr, "Export2sv: %p\n", export_to_sv);
 
-                RETVAL = export_to_sv( aTHX_
-                    self_sv,
-                    extern_p,
-                    export_type_p
-                );
+                RETVAL = export_to_sv( aTHX_ self_sv, extern_p );
             } break;
 
             default: {
@@ -657,24 +703,26 @@ export (SV* self_sv, SV* search_name)
                 );
             }
         }
+    sv_dump(RETVAL);
+        fprintf(stderr, "end/export\n");
 
     OUTPUT:
         RETVAL
 
-void
-export_memories (SV* self_sv)
-    PPCODE:
-        XSRETURN( xs_export_kind_list(aTHX_ SP, self_sv, WASM_EXTERN_MEMORY) );
-
-void
-export_globals (SV* self_sv)
-    PPCODE:
-        XSRETURN( xs_export_kind_list(aTHX_ SP, self_sv, WASM_EXTERN_GLOBAL) );
-
-void
-export_functions (SV* self_sv)
-    PPCODE:
-        XSRETURN( xs_export_kind_list(aTHX_ SP, self_sv, WASM_EXTERN_FUNC) );
+# void
+# export_memories (SV* self_sv)
+#     PPCODE:
+#         XSRETURN( xs_export_kind_list(aTHX_ SP, self_sv, WASM_EXTERN_MEMORY) );
+# 
+# void
+# export_globals (SV* self_sv)
+#     PPCODE:
+#         XSRETURN( xs_export_kind_list(aTHX_ SP, self_sv, WASM_EXTERN_GLOBAL) );
+# 
+# void
+# export_functions (SV* self_sv)
+#     PPCODE:
+#         XSRETURN( xs_export_kind_list(aTHX_ SP, self_sv, WASM_EXTERN_FUNC) );
 
 void
 call (SV* self_sv, SV* funcname_sv, ...)
@@ -708,6 +756,55 @@ DESTROY (SV* self_sv)
 # ----------------------------------------------------------------------
 
 MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Global
+
+PROTOTYPES: DISABLE
+
+SV*
+get (SV* self_sv)
+    CODE:
+        global_holder_t* holder = svrv_to_ptr(aTHX_ self_sv);
+        RETVAL = global_holder_get_sv(aTHX_ holder);
+
+    OUTPUT:
+        RETVAL
+
+SV*
+set (SV* self_sv, SV* newval)
+    CODE:
+        global_holder_t* holder = svrv_to_ptr(aTHX_ self_sv);
+        global_holder_set_sv(aTHX_ holder, newval);
+
+        RETVAL = SvREFCNT_inc(self_sv);
+
+    OUTPUT:
+        RETVAL
+
+void
+DESTROY (SV* self_sv)
+    CODE:
+        destroy_global_sv(aTHX_ self_sv);
+
+# ----------------------------------------------------------------------
+
+MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Memory
+
+PROTOTYPES: DISABLE
+
+void
+DESTROY (SV* self_sv)
+    CODE:
+        destroy_memory_sv(aTHX_ self_sv);
+
+# ----------------------------------------------------------------------
+
+MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Function
+
+PROTOTYPES: DISABLE
+
+void
+DESTROY (SV* self_sv)
+    CODE:
+        destroy_function_sv(aTHX_ self_sv);
 
 # ----------------------------------------------------------------------
 
@@ -747,10 +844,7 @@ set (SV* self_sv, SV* newval)
     OUTPUT:
         RETVAL
 
-void
-DESTROY (SV* self_sv)
-    CODE:
-        destroy_export_global_sv(aTHX_ self_sv);
+
 
 # ----------------------------------------------------------------------
 
@@ -793,11 +887,6 @@ data_size (SV* self_sv)
 
     OUTPUT:
         RETVAL
-
-void
-DESTROY (SV* self_sv)
-    CODE:
-        destroy_memory_sv(aTHX_ self_sv);
 
 # ----------------------------------------------------------------------
 

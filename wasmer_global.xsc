@@ -15,13 +15,49 @@ typedef struct {
 typedef struct {
     wasm_global_t* global;
     wasm_globaltype_t* type;
-    SV* module_sv;
     wasm_importtype_t* import_type;
 
     pid_t pid;
     SV* given;
 } global_import_holder_t;
 
+typedef struct {
+    wasm_global_t* global;
+    SV* store_sv;
+    pid_t pid;
+} global_holder_t;
+
+wasm_val_t grok_wasm_val (pTHX_ wasm_externkind_t kind, SV* given) {
+    wasm_val_t ret;
+
+    switch (kind) {
+        case WASM_I32:
+            ret = (wasm_val_t) WASM_I32_VAL( grok_i32( aTHX_ given ) );
+            break;
+
+        case WASM_I64:
+            ret = (wasm_val_t) WASM_I64_VAL( grok_i64( aTHX_ given ) );
+            break;
+
+        case WASM_F32:
+            ret = (wasm_val_t) WASM_F32_VAL( SvNV( aTHX_ given ) );
+            break;
+
+        case WASM_F64:
+            ret = (wasm_val_t) WASM_F64_VAL( SvNV( aTHX_ given ) );
+            break;
+
+        default:
+            ret = (wasm_val_t) WASM_I32_VAL(0); // silence compiler
+            assert(0);
+    }
+
+    return ret;
+}
+
+// ----------------------------------------------------------------------
+
+/*
 global_import_holder_t* new_global_import (pTHX_ SV* given) {
     global_import_holder_t* new;
     Newxz(new, 1, global_import_holder_t);
@@ -44,13 +80,9 @@ void destroy_global_import(pTHX_ global_import_holder_t* holder) {
     if (holder->global) {
         //wasm_global_delete(holder->global);
     }
-
-    if (holder->module_sv) {
-        SvREFCNT_dec(holder->module_sv);
-    }
 }
 
-static inline wasm_global_t* global_import_sv_initialize (pTHX_ SV* global_sv, wasm_importtype_t* import_type, SV* module_sv, wasm_store_t* store, const wasm_globaltype_t* type) {
+static inline wasm_global_t* global_import_sv_initialize (pTHX_ SV* global_sv, wasm_importtype_t* import_type, wasm_store_t* store, const wasm_globaltype_t* type) {
     global_import_holder_t* holder_p = svrv_to_ptr(aTHX_ global_sv);
 
     const wasm_valtype_t* type_p = wasm_globaltype_content(type);
@@ -102,34 +134,33 @@ static inline wasm_global_t* global_import_sv_initialize (pTHX_ SV* global_sv, w
     holder_p->type = (wasm_globaltype_t*) type;
     holder_p->import_type = import_type;
 
-    holder_p->module_sv = module_sv;
-    SvREFCNT_inc(module_sv);
-
     return holder_p->global;
 }
 
 static inline SV* global_import_sv_mutability_sv (pTHX_ SV* self_sv) {
 
 }
+*/
 
 // ----------------------------------------------------------------------
 
-SV* global_export_to_sv (pTHX_ SV* instance_sv, wasm_extern_t* export_p, wasm_exporttype_t* export_type_p) {
-    global_export_holder_t* global_holder;
-    Newx(global_holder, 1, global_export_holder_t);
-
+SV* global_export_to_sv (pTHX_ SV* store_sv, wasm_extern_t* export_p) {
     wasm_global_t* global = wasm_extern_as_global(export_p);
 
-    global_holder->global = global;
-    global_holder->pid = getpid();
-    global_holder->export_type = export_type_p;
+    global_holder_t* global_holder;
+    Newx(global_holder, 1, global_holder_t);
 
-    global_holder->instance_sv = instance_sv;
-    SvREFCNT_inc(instance_sv);
+    *global_holder = (global_holder_t) {
+        .global = global,
+        .store_sv = store_sv,
+        .pid = getpid(),
+    };
+
+    SvREFCNT_inc(store_sv);
 
     return ptr_to_svrv( aTHX_
         global_holder,
-        gv_stashpv(EXP_GLOBAL_CLASS, FALSE)
+        gv_stashpv(GLOBAL_CLASS, FALSE)
     );
 }
 
@@ -261,14 +292,50 @@ static inline void global_export_sv_set_sv (pTHX_ SV* self_sv, SV* newval) {
     }
 }
 
-static inline void destroy_export_global_sv (pTHX_ SV* self_sv) {
-    global_export_holder_t* global_holder_p = svrv_to_ptr(aTHX_ self_sv);
+static inline void destroy_global_sv (pTHX_ SV* self_sv) {
+    global_holder_t* global_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
     warn_destruct_if_needed(self_sv, global_holder_p->pid);
 
-    SvREFCNT_dec( global_holder_p->instance_sv );
+    SvREFCNT_dec( global_holder_p->store_sv );
 
     Safefree(global_holder_p);
+}
+
+// ----------------------------------------------------------------------
+
+static inline SV* global_holder_get_sv (pTHX_ global_holder_t* holder_p) {
+    return _wasm_global_to_sv(aTHX_ holder_p->global);
+}
+
+static inline void global_holder_set_sv (pTHX_ global_holder_t* holder_p, SV* newval) {
+    wasm_global_t* global = holder_p->global;
+
+    _wasm_global_set_sv(aTHX_ global, newval);
+
+    if (_WASMER_HAS_ERROR) {
+        const wasm_globaltype_t* gtype = wasm_global_type(global);
+        const wasm_valtype_t* vtype = wasm_globaltype_content(gtype);
+
+        const char* mutability_descr[2];
+        mutability_descr[WASM_CONST] = "constant";
+        mutability_descr[WASM_VAR] = "mutable";
+
+        const char* kind_descr[4];
+        kind_descr[WASM_I32] = "i32";
+        kind_descr[WASM_I64] = "i64";
+        kind_descr[WASM_F32] = "f32";
+        kind_descr[WASM_F64] = "f64";
+
+        _croak_if_wasmer_error(
+            "Failed to set %s %s global to %" SVf,
+            mutability_descr[ wasm_globaltype_mutability(gtype) ],
+            kind_descr[ wasm_valtype_kind(vtype) ],
+            newval
+        );
+
+        assert(0);
+    }
 }
 
 #endif

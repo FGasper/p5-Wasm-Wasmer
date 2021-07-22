@@ -9,6 +9,12 @@
         offset, len, offset + len, buflen \
     )
 
+typedef struct {
+    wasm_memory_t* memory;
+    SV* store_sv;
+    pid_t pid;
+} memory_holder_t;
+
 static inline void memory_set (pTHX_ wasm_memory_t* memory, SV* replacement_sv, SV* offset_sv) {
     STRLEN replen;
     char *replacement = SvPVbyte(replacement_sv, replen);
@@ -97,35 +103,29 @@ typedef struct {
     wasm_importtype_t* import_type;
 } memory_import_holder_t;
 
-memory_import_holder_t* new_memory_import(pTHX) {
-/*
-    if (limits.max && limits.max < limits.min) {
-    }
-*/
+memory_holder_t* new_memory_import(pTHX_ wasm_store_t* store, wasm_limits_t* limits_p) {
 
-    memory_import_holder_t* holder;
-    Newxz(holder, 1, memory_import_holder_t);
+    memory_holder_t* holder;
+    Newxz(holder, 1, memory_holder_t);
 
-//    own wasm_memorytype_t* memtype = wasm_memorytype_new(&limits);
+    own wasm_memorytype_t* memtype = wasm_memorytype_new(limits_p);
 
-    *holder = (memory_import_holder_t) {
+    *holder = (memory_holder_t) {
         .pid = getpid(),
-//        .memory = wasm_memory_new(limits),
+        .memory = wasm_memory_new(store, memtype),
     };
 
-/*
     wasm_memorytype_delete(memtype);
 
     if (!holder->memory) {
         _croak_if_wasmer_error(
-            "Failed to create a memory (min=%lu, max=%lu)",
-            limits.min,
-            limits.max,
+            "Failed to create a memory (initial=%u, max=%u)",
+            limits_p->min,
+            limits_p->max
         );
 
-        croak("Failed to create memory, but no Wasmer error?!?");
+        assert(0 /* Failed to create memory, but no Wasmer error?!? */);
     }
-*/
 
     return holder;
 }
@@ -187,22 +187,23 @@ typedef struct {
     SV* instance_sv;
 } memory_export_holder_t;
 
-SV* memory_export_to_sv (pTHX_ SV* instance_sv, wasm_extern_t* extern_p, wasm_exporttype_t* export_type_p) {
-    memory_export_holder_t* memory_holder;
-    Newx(memory_holder, 1, memory_export_holder_t);
+SV* memory_export_to_sv (pTHX_ SV* store_sv, wasm_extern_t* export_p) {
+    wasm_memory_t* memory = wasm_extern_as_memory(export_p);
 
-    wasm_memory_t* memory = wasm_extern_as_memory(extern_p);
+    memory_holder_t* holder_p;
+    Newx(holder_p, 1, memory_holder_t);
 
-    memory_holder->memory = memory;
-    memory_holder->pid = getpid();
-    memory_holder->export_type = export_type_p;
+    *holder_p = (memory_holder_t) {
+        .memory = memory,
+        .store_sv = store_sv,
+        .pid = getpid(),
+    };
 
-    memory_holder->instance_sv = instance_sv;
-    SvREFCNT_inc(instance_sv);
+    SvREFCNT_inc(store_sv);
 
     return ptr_to_svrv( aTHX_
-        memory_holder,
-        gv_stashpv(EXP_MEMORY_CLASS, FALSE)
+        holder_p,
+        gv_stashpv(MEMORY_CLASS, FALSE)
     );
 }
 
@@ -227,11 +228,11 @@ static inline usize memory_sv_data_size (pTHX_ SV* self_sv) {
 }
 
 static inline void destroy_memory_sv (pTHX_ SV* self_sv) {
-    memory_export_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
+    memory_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
     warn_destruct_if_needed(self_sv, memory_holder_p->pid);
 
-    SvREFCNT_dec( memory_holder_p->instance_sv );
+    SvREFCNT_dec( memory_holder_p->store_sv );
 
     Safefree(memory_holder_p);
 }

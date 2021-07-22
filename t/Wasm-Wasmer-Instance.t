@@ -334,28 +334,26 @@ sub test_func_import : Tests(7) {
     return;
 }
 
-sub test_export : Tests(3) {
+sub test_export : Tests(1) {
     my $ok_wat  = _WAT;
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
 
     my $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_instance();
+diag "got instance";
 
     is(
         $instance,
         object {
             call [ export => 'add' ] => object {
-                prop blessed => 'Wasm::Wasmer::Export::Function';
-                call name    => 'add';
+                prop blessed => 'Wasm::Wasmer::Function';
             };
 
             call [ export => 'varglobal' ] => object {
-                prop blessed => 'Wasm::Wasmer::Export::Global';
-                call name    => 'varglobal';
+                prop blessed => 'Wasm::Wasmer::Global';
             };
 
             call [ export => 'pagememory' ] => object {
-                prop blessed => 'Wasm::Wasmer::Export::Memory';
-                call name    => 'pagememory';
+                prop blessed => 'Wasm::Wasmer::Memory';
             };
         },
         'export() method gives expected returns',
@@ -371,18 +369,16 @@ sub test_func_export_add : Tests(2) {
     my $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_instance();
 
     is(
-        [ $instance->export_functions() ],
-        [
-            object {
-                prop blessed            => 'Wasm::Wasmer::Export::Function';
-                call name               => 'add';
+        $instance,
+        object {
+            call [ export => 'add' ] => object {
+                prop blessed            => 'Wasm::Wasmer::Function';
                 call [ call => 22, 33 ] => 55;
+            };
+            call [ export => 'tellvarglobal' ] => object {
+                prop blessed => 'Wasm::Wasmer::Function';
             },
-            object {
-                prop blessed => 'Wasm::Wasmer::Export::Function';
-                call name    => 'tellvarglobal';
-            },
-        ],
+        },
         'export_functions()',
     );
 
@@ -411,7 +407,7 @@ sub test_import_memory : Tests(3) {
 
     my $module = Wasm::Wasmer::Module->new($ok_wasm);
 
-    my $mem = $module->create_memory();
+    my $mem = $module->create_memory( initial => 2 );
 
     my $instance = $module->create_instance(
         {

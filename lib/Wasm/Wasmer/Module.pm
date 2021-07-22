@@ -93,6 +93,12 @@ Note that you can override WASI imports with this, if you so desire.
 Creates a L<Wasm::Wasmer::Import::Global> instance. See that module’s
 documentation for more details.
 
+=head2 $global = I<OBJ>->create_memory()
+
+Creates a L<Wasm::Wasmer::Import::Memory> instance. See that module’s
+documentation for more details. Currently this accepts no parameters;
+instead it conforms to the WASM module’s needs.
+
 =head2 $bytes = I<OBJ>->serialize()
 
 Serializes the in-memory module for later use. (cf. C<deserialize()> below)
