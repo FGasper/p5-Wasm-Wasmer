@@ -94,10 +94,6 @@ static inline SV* memory_get (pTHX_ extern_holder_t* holder_p, SV* offset_sv, SV
 
 // ----------------------------------------------------------------------
 
-SV* memory_export_to_sv (pTHX_ SV* creator_sv, wasm_extern_t* export_p) {
-    return extern_to_sv(aTHX_ creator_sv, export_p, MEMORY_CLASS);
-}
-
 SV* new_memory_import_sv(pTHX_ SV* store_sv, wasm_limits_t* limits_p) {
     own wasm_memorytype_t* memtype = wasm_memorytype_new(limits_p);
 
@@ -117,7 +113,7 @@ SV* new_memory_import_sv(pTHX_ SV* store_sv, wasm_limits_t* limits_p) {
         assert(0 /* Failed to create memory, but no Wasmer error?!? */);
     }
 
-    return memory_export_to_sv(aTHX_
+    return memory_to_sv(aTHX_
         store_sv,
         wasm_memory_as_extern(memory)
     );
