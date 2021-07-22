@@ -209,6 +209,35 @@ const wasm_extern_t* _get_host_import(const wasmer_named_extern_vec_t* host_impo
     return NULL;
 }
 
+SV* create_instance2_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasmer_named_extern_vec_t* host_imports ) {
+    HV* imports_hv = NULL;
+
+    if (imports_sv) {
+        if (SvOK(imports_sv)) {
+            imports_hv = get_hv_from_sv_or_croak( aTHX_ imports_sv, "Imports" );
+        }
+    }
+
+    I32 namespaces_count = hv_iterinit(imports_hv);
+
+    for (I32 i=0; i<namespaces_count; i++) {
+        HE* entry = hv_iternext(imports_hv);
+
+        SV* keysv = hv_iterkeysv(entry);
+
+        STRLEN keylen;
+        const char* keystr = SvPVutf8(keysv, keylen);
+
+        SV* valsv = hv_iterval(imports_hv, entry);
+
+        HV* namespace_hv = get_hv_from_sv_or_croak( aTHX_ valsv, keystr );
+
+        I32 imports_count = hv_iterinit(namespace_hv);
+
+        for (I32 n=0; i<imports_count; n++) {
+            HE* entry = hv_iternext(namespace_hv);
+    }
+
 SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasmer_named_extern_vec_t* host_imports ) {
     const char* class = class_sv ? SvPVbyte_nolen(class_sv) : P5_WASM_WASMER_INSTANCE_CLASS;
 
@@ -243,10 +272,46 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
 
         wasm_extern_t* cur_extern_p = NULL;
 
+        SV* import_sv = _get_import_sv(aTHX_ imports_hv, modname, globname, false);
+        if (import_sv) {
+            if (!sv_derived_from(import_sv, EXTERN_CLASS)) {
+                croak(
+                    "Import %.*s.%.*s must be a %s instance, not %" SVf,
+                    (int) modname->size, modname->data,
+                    (int) name->size, name->data,
+                    EXTERN_CLASS,
+                    import_sv
+                );
+            }
+
+            extern_holder_t* holder_p = svrv_to_ptr(aTHX_ import_sv);
+
+            cur_extern_p = holder_p->extern_p;
+            assert(cur_extern_p);
+        }
+        else {
+            switch (wasm_externtype_kind(externtype)) {
+                case WASM_EXTERN_FUNC: {
+                    CV* coderef = _get_import_coderef(aTHX_ imports_hv, modname, name, false);
+
+            if (host_imports) {
+                cur_extern_p = (wasm_extern_t*) _get_host_import(host_imports, modname, name);
+
+                if (!cur_extern_p) {
+                    _get_import_global(aTHX_ imports_hv, modname, name, true);
+                    assert(0);
+                }
+            }
+
         switch (wasm_externtype_kind(externtype)) {
             case WASM_EXTERN_FUNC: {
 
                 CV* coderef = _get_import_coderef(aTHX_ imports_hv, modname, name, false);
+                cur_extern_p = function_extern_from_coderef( aTHX_
+                    coderef,
+                    externtype,
+                );
+
                 if (NULL == coderef) {
                     if (host_imports) {
                         cur_extern_p = (wasm_extern_t*) _get_host_import(host_imports, modname, name);
@@ -258,41 +323,7 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
                     }
                 }
                 else {
-                    const wasm_functype_t* functype = wasm_externtype_as_functype_const(externtype);
-                    const wasm_valtype_vec_t* params = wasm_functype_params(functype);
-                    const wasm_valtype_vec_t* results = wasm_functype_results(functype);
 
-                    callback_holder_t* callback_holder_p;
-
-                    Newx(callback_holder_p, 1, callback_holder_t);
-
-                    callback_holder_p->store = store_holder_p->store;
-#if WASM_WASMER_MUST_STORE_PERL
-                    callback_holder_p->aTHX = aTHX;
-#endif
-                    callback_holder_p->coderef = coderef;
-                    SvREFCNT_inc( (SV*) coderef );
-                    callback_holder_p->modname = *modname;
-                    callback_holder_p->funcname = *name;
-
-                    wasm_valtype_vec_copy(
-                        &callback_holder_p->results,
-                        results
-                    );
-
-                    own wasm_functype_t* host_func_type = wasm_functype_new((wasm_valtype_vec_t *) params, (wasm_valtype_vec_t *) results);
-
-                    own wasm_func_t* host_func = wasm_func_new_with_env(
-                        store_holder_p->store,
-                        host_func_type,
-                        host_func_callback,
-                        callback_holder_p,
-                        free_callback_holder
-                    );
-
-                    wasm_functype_delete(host_func_type);
-
-                    cur_extern_p = wasm_func_as_extern(host_func);
                 }
 
             } break;
