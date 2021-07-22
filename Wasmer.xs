@@ -57,7 +57,8 @@ void print_wasmer_error()
 
 /* ---------------------------------------------------------------------- */
 
-unsigned _call_wasm( pTHX_ SV** SP, wasm_func_t* function, wasm_exporttype_t* export_type, SV** given_arg, unsigned given_args_count ) {
+unsigned _call_wasm( pTHX_ SV** SP, wasm_func_t* function, SV** given_arg, unsigned given_args_count ) {
+fprintf(stderr, "_call_wasm start\n");
 
     own wasm_functype_t* functype = wasm_func_type(function);
 
@@ -81,40 +82,17 @@ unsigned _call_wasm( pTHX_ SV** SP, wasm_func_t* function, wasm_exporttype_t* ex
     wasm_functype_delete(functype);
 
     if (given_args_count != params_count) {
-        const wasm_name_t* name = wasm_exporttype_name(export_type);
-
-        croak("“%.*s” needs %u parameter(s); %u given", (int)name->size, name->data, params_count, given_args_count);
+        croak("Function needs %u parameter(s); %u given", params_count, given_args_count);
     }
 
     if ((results_count > 1) && GIMME_V == G_SCALAR) {
-        const wasm_name_t* name = wasm_exporttype_name(export_type);
-
-        croak("“%.*s” returns multiple values (%u); called in scalar context", (int)name->size, name->data, results_count);
+        croak("Function returns multiple values (%u); called in scalar context", results_count);
     }
 
     wasm_val_t wasm_param[given_args_count];
 
     for (unsigned i=0; i<given_args_count; i++) {
-        switch (param_kind[i]) {
-            case WASM_I32:
-                wasm_param[i] = (wasm_val_t) WASM_I32_VAL( grok_i32( given_arg[i] ) );
-                break;
-
-            case WASM_I64:
-                wasm_param[i] = (wasm_val_t) WASM_I64_VAL( grok_i64( given_arg[i] ) );
-                break;
-
-            case WASM_F32:
-                wasm_param[i] = (wasm_val_t) WASM_F32_VAL( SvNV( given_arg[i] ) );
-                break;
-
-            case WASM_F64:
-                wasm_param[i] = (wasm_val_t) WASM_F64_VAL( SvNV( given_arg[i] ) );
-                break;
-
-            default:
-                croak("Parameter #%d is of unknown type (%d)!", 1 + i, param_kind[i]);
-        }
+        wasm_param[i] = grok_wasm_val(aTHX_ param_kind[i], given_arg[i]);
     }
 
     wasm_val_t wasm_result[results_count];
@@ -126,7 +104,9 @@ unsigned _call_wasm( pTHX_ SV** SP, wasm_func_t* function, wasm_exporttype_t* ex
     wasm_val_vec_t params_vec = WASM_ARRAY_VEC(wasm_param);
     wasm_val_vec_t results_vec = WASM_ARRAY_VEC(wasm_result);
 
+fprintf(stderr, "before func_call\n");
     own wasm_trap_t* trap = wasm_func_call(function, &params_vec, &results_vec);
+fprintf(stderr, "after func_call\n");
 
     _croak_if_trap(aTHX_ trap);
 
@@ -134,28 +114,8 @@ unsigned _call_wasm( pTHX_ SV** SP, wasm_func_t* function, wasm_exporttype_t* ex
         EXTEND(SP, results_count);
 
         for (unsigned i=0; i<results_count; i++) {
-            switch (result_kind[i]) {
-                case WASM_I32:
-                    mPUSHs( newSViv( (IV) wasm_result[i].of.i32 ) );
-                    break;
-
-                case WASM_I64:
-                    mPUSHs( newSViv( (IV) wasm_result[i].of.i64 ) );
-                    break;
-
-                case WASM_F32:
-                    mPUSHs( newSVnv( (float) wasm_result[i].of.f32 ) );
-                    break;
-
-                case WASM_F64:
-                    mPUSHs( newSVnv( (float) wasm_result[i].of.f64 ) );
-                    break;
-
-                default:
-                    croak("Function return #%d is of unknown type!", 1 + i);
-            }
+            mPUSHs( ww_val2sv( aTHX_ &wasm_result[i] ) );
         }
-
     }
 
     return results_count;
@@ -170,8 +130,8 @@ static inline void _start_wasi_if_needed(pTHX_ instance_holder_t* instance_holde
 
     wasm_func_t* func = wasi_get_start_function(instance_holder_p->instance);
 
-    wasm_val_t args_val[0] = {};
-    wasm_val_t results_val[0] = {};
+    wasm_val_t args_val[] = {};
+    wasm_val_t results_val[] = {};
     wasm_val_vec_t args = WASM_ARRAY_VEC(args_val);
     wasm_val_vec_t results = WASM_ARRAY_VEC(results_val);
 
@@ -353,8 +313,19 @@ create_i32_const (SV* self_sv, SV* value_sv)
             assert(0 /* Failed to create global */);
         }
 
+        global_holder_t* holder_p;
+        Newxz(holder_p, 1, global_holder_t);
+
+        *holder_p = (global_holder_t) {
+            .global = global,
+            .pid = getpid(),
+            .store_sv = self_sv,
+        };
+
+        SvREFCNT_inc(self_sv);
+
         RETVAL = ptr_to_svrv( aTHX_
-            global,
+            holder_p,
             gv_stashpv(GLOBAL_CLASS, FALSE)
         );
 
@@ -368,17 +339,19 @@ create_memory (SV* self_sv, ...)
 
         if (!(items % 2)) croak("Uneven args list given!");
 
-        wasm_limits_t limits = { };
+        wasm_limits_t limits = {
+            .max = wasm_limits_max_default,
+        };
         bool saw_initial = false;
 
         for (I32 i=1; i<items; i += 2) {
             const char* arg = SvPVbyte_nolen(ST(i));
 
-            if (strEQ(arg, "min")) {
+            if (strEQ(arg, "initial")) {
                 limits.min = grok_i32(ST(1 + i));
                 saw_initial = true;
             }
-            else if (strEQ(arg, "max")) {
+            else if (strEQ(arg, "maximum")) {
                 limits.max = grok_i32(ST(1 + i));
             }
             else {
@@ -703,7 +676,6 @@ export (SV* self_sv, SV* search_name)
                 );
             }
         }
-    sv_dump(RETVAL);
         fprintf(stderr, "end/export\n");
 
     OUTPUT:
@@ -744,7 +716,7 @@ call (SV* self_sv, SV* funcname_sv, ...)
 
         _start_wasi_if_needed(aTHX_ instance_holder_p);
 
-        unsigned retvals = _call_wasm( aTHX_ SP, func, export_type, &ST(2), given_args_count );
+        unsigned retvals = _call_wasm( aTHX_ SP, func, &ST(2), given_args_count );
 
         XSRETURN(retvals);
 
@@ -779,6 +751,14 @@ set (SV* self_sv, SV* newval)
     OUTPUT:
         RETVAL
 
+SV*
+mutability (SV* self_sv)
+    CODE:
+        RETVAL = global_sv_mutability_sv(aTHX_ self_sv);
+
+    OUTPUT:
+        RETVAL
+
 void
 DESTROY (SV* self_sv)
     CODE:
@@ -790,6 +770,36 @@ MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Memory
 
 PROTOTYPES: DISABLE
 
+SV*
+set (SV* self_sv, SV* replacement_sv, SV* offset_sv=NULL)
+    CODE:
+        memory_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+        memory_set(holder_p->memory, replacement_sv, offset_sv);
+
+        RETVAL = SvREFCNT_inc(self_sv);
+
+    OUTPUT:
+        RETVAL
+
+SV*
+get (SV* self_sv, SV* offset_sv=NULL, SV* length_sv=NULL)
+    CODE:
+        memory_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+        RETVAL = memory_get(holder_p->memory, offset_sv, length_sv);
+
+    OUTPUT:
+        RETVAL
+
+UV
+data_size (SV* self_sv)
+    CODE:
+        RETVAL = memory_sv_data_size(aTHX_ self_sv);
+
+    OUTPUT:
+        RETVAL
+
 void
 DESTROY (SV* self_sv)
     CODE:
@@ -800,6 +810,15 @@ DESTROY (SV* self_sv)
 MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Function
 
 PROTOTYPES: DISABLE
+
+void
+call (SV* self_sv, ...)
+    PPCODE:
+        func_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+        unsigned count = _call_wasm( aTHX_ SP, holder_p->func, &ST(1), items - 1 );
+
+        XSRETURN(count);
 
 void
 DESTROY (SV* self_sv)
@@ -818,13 +837,7 @@ name (SV* self_sv)
     OUTPUT:
         RETVAL
 
-SV*
-mutability (SV* self_sv)
-    CODE:
-        RETVAL = global_export_sv_mutability_sv(aTHX_ self_sv);
 
-    OUTPUT:
-        RETVAL
 
 SV*
 get (SV* self_sv)
@@ -858,35 +871,7 @@ name (SV* self_sv)
     OUTPUT:
         RETVAL
 
-SV*
-set (SV* self_sv, SV* replacement_sv, SV* offset_sv=NULL)
-    CODE:
-        memory_export_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
-        memory_set(memory_holder_p->memory, replacement_sv, offset_sv);
-
-        RETVAL = SvREFCNT_inc(self_sv);
-
-    OUTPUT:
-        RETVAL
-
-SV*
-get (SV* self_sv, SV* offset_sv=NULL, SV* length_sv=NULL)
-    CODE:
-        memory_export_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
-
-        RETVAL = memory_get(memory_holder_p->memory, offset_sv, length_sv);
-
-    OUTPUT:
-        RETVAL
-
-UV
-data_size (SV* self_sv)
-    CODE:
-        RETVAL = memory_sv_data_size(aTHX_ self_sv);
-
-    OUTPUT:
-        RETVAL
 
 # ----------------------------------------------------------------------
 
@@ -905,18 +890,7 @@ name (SV* self_sv)
     OUTPUT:
         RETVAL
 
-void
-call (SV* self_sv, ...)
-    PPCODE:
-        function_holder_t* function_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
-        instance_holder_t* instance_holder_p = svrv_to_ptr(aTHX_ function_holder_p->instance_sv);
-
-        _start_wasi_if_needed(aTHX_ instance_holder_p);
-
-        unsigned count = _call_wasm( aTHX_ SP, function_holder_p->function, function_holder_p->export_type, &ST(1), items - 1 );
-
-        XSRETURN(count);
 
 # void
 # inputs (SV* self_sv)

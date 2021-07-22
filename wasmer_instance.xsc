@@ -139,7 +139,7 @@ static SV* _get_import_global( pTHX_ HV* imports_hv, const wasm_name_t* modname,
                 "Import “%.*s.%.*s” must be a %s instance, not %" SVf,
                 (int) modname->size, modname->data,
                 (int) globname->size, globname->data,
-                IMP_GLOBAL_CLASS, import_sv
+                GLOBAL_CLASS, import_sv
             );
         }
     }
@@ -151,12 +151,12 @@ static SV* _get_import_memory( pTHX_ HV* imports_hv, const wasm_name_t* modname,
     SV* import_sv = _get_import_sv(aTHX_ imports_hv, modname, memname, is_needed);
 
     if (import_sv) {
-        if (!sv_isobject(import_sv) || !sv_derived_from(import_sv, IMP_MEMORY_CLASS)) {
+        if (!sv_isobject(import_sv) || !sv_derived_from(import_sv, MEMORY_CLASS)) {
             croak(
                 "Import “%.*s.%.*s” must be a %s instance, not %" SVf,
                 (int) modname->size, modname->data,
                 (int) memname->size, memname->data,
-                IMP_MEMORY_CLASS, import_sv
+                MEMORY_CLASS, import_sv
             );
         }
     }
@@ -165,6 +165,7 @@ static SV* _get_import_memory( pTHX_ HV* imports_hv, const wasm_name_t* modname,
 }
 
 SV* instance_to_sv (pTHX_ wasm_instance_t* instance, SV* module_sv, wasm_extern_vec_t imports, const char* class) {
+fprintf(stderr, "instance_to_sv\n");
     instance_holder_t* instance_holder_p;
 
     Newx(instance_holder_p, 1, instance_holder_t);
@@ -300,7 +301,7 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
                 SV* import_sv = _get_import_global(aTHX_ imports_hv, modname, name, false);
 
                 if (import_sv) {
-                    global_import_holder_t* holder_p = svrv_to_ptr(aTHX_ import_sv);
+                    global_holder_t* holder_p = svrv_to_ptr(aTHX_ import_sv);
                     cur_extern_p = wasm_global_as_extern(holder_p->global);
                 }
                 else {
@@ -321,8 +322,8 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
                 wasm_memory_t* memory;
 
                 if (import_sv) {
-                    memory = memory_import_sv_initialize(aTHX_ import_sv, import_type, module_sv, store_holder_p->store, mtype);
-                    cur_extern_p = wasm_memory_as_extern(memory);
+                    memory_holder_t* holder_p = svrv_to_ptr(aTHX_ import_sv);
+                    cur_extern_p = wasm_memory_as_extern(holder_p->memory);
                 }
                 else {
                     cur_extern_p = (wasm_extern_t*) _get_host_import(host_imports, modname, name);
@@ -339,8 +340,10 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
                 break;
         }
 
+fprintf(stderr, "assign to imports: %p\n", cur_extern_p);
         imports[i] = cur_extern_p;
     }
+fprintf(stderr, "got imports\n");
 
     own wasm_extern_vec_t imports_vec = WASM_ARRAY_VEC(imports);
 
@@ -349,6 +352,7 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
     // actually only creates 0 or 1.
     //
     wasm_trap_t* trap = NULL;
+fprintf(stderr, "get instance\n");
 
     own wasm_instance_t* instance = wasm_instance_new(
         NULL, /* Ignored, per the documentation */
@@ -356,6 +360,8 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
         &imports_vec,
         &trap
     );
+
+fprintf(stderr, "got instance\n");
 
     wasm_extern_vec_t heap_imports;
     wasm_extern_vec_new_uninitialized(&heap_imports, import_types_p->size);

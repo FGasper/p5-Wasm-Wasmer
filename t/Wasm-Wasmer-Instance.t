@@ -267,7 +267,6 @@ sub test_func_import : Tests(7) {
     is(
         $err,
         check_set(
-            match(qr<my.*func>),    # name
             match(qr<2>),           # expected
             match(qr<3>),           # received
         ),
@@ -281,7 +280,6 @@ sub test_func_import : Tests(7) {
     is(
         $err,
         check_set(
-            match(qr<callfunc>),    # name
             match(qr<scalar>),      # expected
         ),
         'error when list-returning WASM function called in scalar context',
@@ -296,7 +294,6 @@ sub test_func_import : Tests(7) {
     is(
         $err,
         check_set(
-            match(qr<needsparams>),
             match(qr<2>),
             match(qr<0>),
         ),
@@ -310,7 +307,6 @@ sub test_func_import : Tests(7) {
     is(
         $err,
         check_set(
-            match(qr<needsparams>),
             match(qr<2>),
             match(qr<1>),
         ),
@@ -324,7 +320,6 @@ sub test_func_import : Tests(7) {
     is(
         $err,
         check_set(
-            match(qr<needsparams>),
             match(qr<2>),
             match(qr<3>),
         ),
@@ -405,9 +400,10 @@ sub test_import_memory : Tests(3) {
 
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
 
-    my $module = Wasm::Wasmer::Module->new($ok_wasm);
+    my $store = Wasm::Wasmer::Store->new();
+    my $module = Wasm::Wasmer::Module->new($ok_wasm, $store);
 
-    my $mem = $module->create_memory( initial => 2 );
+    my $mem = $store->create_memory( initial => 2 );
 
     my $instance = $module->create_instance(
         {
@@ -452,15 +448,16 @@ sub test_import_globals_types : Tests(1) {
 
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
 
-    my $module = Wasm::Wasmer::Module->new($ok_wasm);
+    my $store = Wasm::Wasmer::Store->new();
+    my $module = Wasm::Wasmer::Module->new($ok_wasm, $store);
 
     my $instance = $module->create_instance(
         {
             global => {
-                i32 => $module->create_global(5),
-                i64 => $module->create_global(500),
-                f32 => $module->create_global(5.5),
-                f64 => $module->create_global(500.5),
+                i32 => $store->create_i32_mut(5),
+                i64 => $store->create_i64_mut(500),
+                f32 => $store->create_f32_mut(5.5),
+                f64 => $store->create_f64_mut(500.5),
             },
         },
     );
@@ -490,10 +487,11 @@ sub test_import_globals_mutability : Tests(6) {
 
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
 
-    my $module = Wasm::Wasmer::Module->new($ok_wasm);
+    my $store = Wasm::Wasmer::Store->new();
+    my $module = Wasm::Wasmer::Module->new($ok_wasm, $store);
 
-    my $const = $module->create_global(5);
-    my $var   = $module->create_global(500);
+    my $const = $store->create_i32_const(5);
+    my $var   = $store->create_i32_mut(500);
 
     my $instance = $module->create_instance(
         {
@@ -520,8 +518,7 @@ sub test_import_globals_mutability : Tests(6) {
     is(
         $err,
         check_set(
-            match(qr<mystuff>),
-            match(qr<myconst>),
+            match(qr<i32>),
             match(qr<global>),
         ),
         'error from set() on a constant',
@@ -541,71 +538,65 @@ sub test_global_export_types : Tests(2) {
     my $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_instance();
 
     is(
-        [ $instance->export_globals() ],
-        bag {
-            item object {
-                prop blessed    => 'Wasm::Wasmer::Export::Global';
-                call name       => 'my_i32';
-                call get        => 333;
-                call mutability => Wasm::Wasmer::WASM_VAR;
-            };
-            item object {
-                prop blessed    => 'Wasm::Wasmer::Export::Global';
-                call name       => 'my_i64';
+        $instance,
+        object {
+            call [ export => 'my_i32' ] => object {
+                prop blessed    => 'Wasm::Wasmer::Global';
                 call get        => 333;
                 call mutability => Wasm::Wasmer::WASM_VAR;
             };
 
-            item object {
-                prop blessed    => 'Wasm::Wasmer::Export::Global';
-                call name       => 'my_f32';
+            call [ export => 'my_i64' ] => object {
+                prop blessed    => 'Wasm::Wasmer::Global';
+                call get        => 333;
+                call mutability => Wasm::Wasmer::WASM_VAR;
+            };
+
+            call [ export => 'my_f32' ] => object {
+                prop blessed    => 'Wasm::Wasmer::Global';
                 call get        => 33.5;
                 call mutability => Wasm::Wasmer::WASM_VAR;
             };
 
-            item object {
-                prop blessed    => 'Wasm::Wasmer::Export::Global';
-                call name       => 'my_f64';
+            call [ export => 'my_f64' ] => object {
+                prop blessed    => 'Wasm::Wasmer::Global';
                 call get        => 33.5;
                 call mutability => Wasm::Wasmer::WASM_VAR;
             };
         },
-        'export_globals()',
+        'export()s',
     );
 
-    $_->set(37) for $instance->export_globals();
+    $instance->export($_)->set(37) for qw(my_i32 my_i64 my_f32 my_f64);
 
     is(
-        [ $instance->export_globals() ],
-        bag {
-            item object {
-                prop blessed    => 'Wasm::Wasmer::Export::Global';
-                call name       => 'my_i32';
-                call get        => 37;
-                call mutability => Wasm::Wasmer::WASM_VAR;
-            };
-            item object {
-                prop blessed    => 'Wasm::Wasmer::Export::Global';
-                call name       => 'my_i64';
+        $instance,
+        object {
+            call [ export => 'my_i32' ] => object {
+                prop blessed    => 'Wasm::Wasmer::Global';
                 call get        => 37;
                 call mutability => Wasm::Wasmer::WASM_VAR;
             };
 
-            item object {
-                prop blessed    => 'Wasm::Wasmer::Export::Global';
-                call name       => 'my_f32';
+            call [ export => 'my_i64' ] => object {
+                prop blessed    => 'Wasm::Wasmer::Global';
                 call get        => 37;
                 call mutability => Wasm::Wasmer::WASM_VAR;
             };
 
-            item object {
-                prop blessed    => 'Wasm::Wasmer::Export::Global';
-                call name       => 'my_f64';
+            call [ export => 'my_f32' ] => object {
+                prop blessed    => 'Wasm::Wasmer::Global';
+                call get        => 37;
+                call mutability => Wasm::Wasmer::WASM_VAR;
+            };
+
+            call [ export => 'my_f64' ] => object {
+                prop blessed    => 'Wasm::Wasmer::Global';
                 call get        => 37;
                 call mutability => Wasm::Wasmer::WASM_VAR;
             };
         },
-        'export_globals()',
+        'export()s after set()',
     );
 
     return;
@@ -617,25 +608,23 @@ sub test_global_export : Tests(8) {
 
     my $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_instance();
 
-    my ($tellvarglobal_f) = grep { $_->name() eq 'tellvarglobal' } $instance->export_functions();
+    my $tellvarglobal_f = $instance->export('tellvarglobal');
 
     is(
-        [ $instance->export_globals() ],
-        [
-            object {
-                prop blessed    => 'Wasm::Wasmer::Export::Global';
-                call name       => 'varglobal';
+        $instance,
+        object {
+            call [ export => 'varglobal' ] => object {
+                prop blessed    => 'Wasm::Wasmer::Global';
                 call get        => 123;
                 call mutability => Wasm::Wasmer::WASM_VAR;
-            },
-            object {
-                prop blessed    => 'Wasm::Wasmer::Export::Global';
-                call name       => 'constglobal';
+            };
+            call [ export => 'constglobal' ] => object {
+                prop blessed    => 'Wasm::Wasmer::Global';
                 call get        => 333;
                 call mutability => Wasm::Wasmer::WASM_CONST;
-            },
-        ],
-        'export_globals()',
+            };
+        },
+        'export() on globals',
     );
 
     my $err = dies { $instance->call('varglobal') };
@@ -650,7 +639,8 @@ sub test_global_export : Tests(8) {
 
     is( $tellvarglobal_f->call(), 123, 'tellvarglobal - initial' );
 
-    my ( $global, $constglobal ) = $instance->export_globals();
+    my $global = $instance->export('varglobal');
+    my $constglobal = $instance->export('constglobal');
 
     is(
         $global->set(234),
@@ -666,12 +656,9 @@ sub test_global_export : Tests(8) {
     is( $err, match(qr<global>), 'error on set of constant global' );
 
     is(
-        [ $instance->export_globals() ],
-        array {
-            item object {
-                call get => 234;
-            };
-            etc();
+        $instance->export('varglobal'),
+        object {
+            call get => 234;
         },
         'set() did its thing (new export_globals())',
     );
@@ -686,37 +673,32 @@ sub test_memory_export : Tests(11) {
     my $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_instance();
 
     is(
-        [ $instance->export_memories() ],
-        [
-            object {
-                prop blessed   => 'Wasm::Wasmer::Export::Memory';
-                call name      => 'pagememory';
-                call data_size => 2**16;
-                call [ get => () ], "Hello World!" . ( "\0" x 65524 );
-                call [ get => 0,       12 ] => "Hello World!";
-                call [ get => 6,       12 ] => "World!\0\0\0\0\0\0";
-                call [ set => 'Harry', 6 ]  => T();
-            },
-        ],
-        'export_memories()',
+        $instance->export('pagememory'),
+        object {
+            prop blessed   => 'Wasm::Wasmer::Memory';
+            call data_size => 2**16;
+            call [ get => () ], "Hello World!" . ( "\0" x 65524 );
+            call [ get => 0,       12 ] => "Hello World!";
+            call [ get => 6,       12 ] => "World!\0\0\0\0\0\0";
+            call [ set => 'Harry', 6 ]  => T();
+        },
+        'export()',
     );
 
     is(
-        [ $instance->export_memories() ],
-        [
-            object {
-                call [ get => 0,       13 ] => "Hello Harry!\0";
-                call [ set => 'Sally', 6 ]  => T();
-                call [ get => 0,       13 ] => "Hello Sally!\0";
+        $instance->export('pagememory'),
+        object {
+            call [ get => 0,       13 ] => "Hello Harry!\0";
+            call [ set => 'Sally', 6 ]  => T();
+            call [ get => 0,       13 ] => "Hello Sally!\0";
 
-            },
-        ],
-        'export_memories() - redux',
+        },
+        'export() - redux',
     );
 
     #--------------------------------------------------
 
-    my $mem = ( $instance->export_memories() )[0];
+    my $mem = $instance->export('pagememory');
 
     my $err = dies { $mem->set("\x{100}") };
     ok( $err, 'set() with wide character', explain $err);

@@ -261,4 +261,60 @@ static inline float grok_f32 (pTHX_ SV* sv) {
 static_assert(sizeof(IV) == sizeof(I64), "IV == I64");
 #define grok_i64 grok_iv
 
+wasm_val_t grok_wasm_val (pTHX_ wasm_externkind_t kind, SV* given) {
+    wasm_val_t ret;
+
+    switch (kind) {
+        case WASM_I32:
+            ret = (wasm_val_t) WASM_I32_VAL( grok_i32( aTHX_ given ) );
+            break;
+
+        case WASM_I64:
+            ret = (wasm_val_t) WASM_I64_VAL( grok_i64( aTHX_ given ) );
+            break;
+
+        case WASM_F32:
+            ret = (wasm_val_t) WASM_F32_VAL( SvNV( aTHX_ given ) );
+            break;
+
+        case WASM_F64:
+            ret = (wasm_val_t) WASM_F64_VAL( SvNV( aTHX_ given ) );
+            break;
+
+        default:
+            ret = (wasm_val_t) WASM_I32_VAL(0); // silence compiler
+            assert(0);
+    }
+
+    return ret;
+}
+
+static inline SV* ww_val2sv (pTHX_ wasm_val_t* val_p) {
+    SV* ret;
+
+    switch (val_p->kind) {
+        case WASM_I32:
+            ret = newSViv(val_p->of.i32);
+            break;
+
+        case WASM_I64:
+            ret = newSViv(val_p->of.i64);
+            break;
+
+        case WASM_F32:
+            ret = newSVnv(val_p->of.f32);
+            break;
+
+        case WASM_F64:
+            ret = newSVnv(val_p->of.f64);
+            break;
+
+        default:
+            ret = NULL; // silence compiler warnings
+            assert(0 && "bad valtype");
+    }
+
+    return ret;
+}
+
 #endif

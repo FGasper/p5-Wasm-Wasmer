@@ -27,34 +27,6 @@ typedef struct {
     pid_t pid;
 } global_holder_t;
 
-wasm_val_t grok_wasm_val (pTHX_ wasm_externkind_t kind, SV* given) {
-    wasm_val_t ret;
-
-    switch (kind) {
-        case WASM_I32:
-            ret = (wasm_val_t) WASM_I32_VAL( grok_i32( aTHX_ given ) );
-            break;
-
-        case WASM_I64:
-            ret = (wasm_val_t) WASM_I64_VAL( grok_i64( aTHX_ given ) );
-            break;
-
-        case WASM_F32:
-            ret = (wasm_val_t) WASM_F32_VAL( SvNV( aTHX_ given ) );
-            break;
-
-        case WASM_F64:
-            ret = (wasm_val_t) WASM_F64_VAL( SvNV( aTHX_ given ) );
-            break;
-
-        default:
-            ret = (wasm_val_t) WASM_I32_VAL(0); // silence compiler
-            assert(0);
-    }
-
-    return ret;
-}
-
 // ----------------------------------------------------------------------
 
 /*
@@ -172,18 +144,21 @@ static inline SV* global_export_sv_name_sv (pTHX_ SV* self_sv) {
     return newSVpvn_flags( name->data, name->size, SVf_UTF8 );
 }
 
-wasm_mutability_t _get_export_mutability (global_export_holder_t* global_holder_p) {
-    const wasm_externtype_t* type = wasm_exporttype_type(global_holder_p->export_type);
+wasm_mutability_t _get_mutability (global_holder_t* global_holder_p) {
 
-    const wasm_globaltype_t* gtype = wasm_externtype_as_globaltype_const(type);
+    own wasm_globaltype_t* gtype = wasm_global_type(global_holder_p->global);
 
-    return wasm_globaltype_mutability(gtype);
+    wasm_mutability_t ret = wasm_globaltype_mutability(gtype);
+
+    wasm_globaltype_delete(gtype);
+
+    return ret;
 }
 
-static inline SV* global_export_sv_mutability_sv (pTHX_ SV* self_sv) {
+SV* global_sv_mutability_sv (pTHX_ SV* self_sv) {
     global_export_holder_t* global_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
-    return newSVuv(_get_export_mutability(global_holder_p));
+    return newSVuv(_get_mutability(global_holder_p));
 }
 
 static inline SV* _wasm_global_to_sv (pTHX_ wasm_global_t* global) {
@@ -191,31 +166,7 @@ static inline SV* _wasm_global_to_sv (pTHX_ wasm_global_t* global) {
 
     wasm_global_get( global, &val );
 
-    SV* ret;
-
-    switch (val.kind) {
-        case WASM_I32:
-            ret = newSViv(val.of.i32);
-            break;
-
-        case WASM_I64:
-            ret = newSViv(val.of.i64);
-            break;
-
-        case WASM_F32:
-            ret = newSVnv(val.of.f32);
-            break;
-
-        case WASM_F64:
-            ret = newSVnv(val.of.f64);
-            break;
-
-        default:
-            ret = NULL; // silence compiler warnings
-            assert(0 && "bad global valtype");
-    }
-
-    return ret;
+    return ww_val2sv(aTHX_ &val);
 }
 
 static inline void _wasm_global_set_sv (pTHX_ wasm_global_t* global, SV* newval) {

@@ -222,7 +222,7 @@ static inline char* memory_sv_data (pTHX_ SV* self_sv) {
 }
 
 static inline usize memory_sv_data_size (pTHX_ SV* self_sv) {
-    memory_export_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
+    memory_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
     return wasm_memory_data_size( memory_holder_p->memory );
 }
