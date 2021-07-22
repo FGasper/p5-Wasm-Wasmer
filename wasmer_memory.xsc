@@ -92,17 +92,6 @@ static inline SV* memory_get (pTHX_ wasm_memory_t* memory, SV* offset_sv, SV* le
 
 // ----------------------------------------------------------------------
 
-typedef struct {
-    wasm_limits_t given_limits;
-
-    pid_t pid;
-
-    SV* module_sv;
-    wasm_memory_t* memory;
-    const wasm_memorytype_t* type;
-    wasm_importtype_t* import_type;
-} memory_import_holder_t;
-
 memory_holder_t* new_memory_import(pTHX_ wasm_store_t* store, wasm_limits_t* limits_p) {
 
     memory_holder_t* holder;
@@ -128,52 +117,6 @@ memory_holder_t* new_memory_import(pTHX_ wasm_store_t* store, wasm_limits_t* lim
     }
 
     return holder;
-}
-
-static inline wasm_memory_t* memory_import_sv_initialize (pTHX_ SV* memory_sv, wasm_importtype_t* import_type, SV* module_sv, wasm_store_t* store, const wasm_memorytype_t* type) {
-    memory_import_holder_t* holder_p = svrv_to_ptr(aTHX_ memory_sv);
-
-    holder_p->memory = wasm_memory_new(store, type);
-    if (!holder_p->memory) {
-        const wasm_name_t* module = wasm_importtype_module(import_type);
-        const wasm_name_t* name = wasm_importtype_name(import_type);
-
-        _croak_if_wasmer_error(
-            "Failed to create memory %.*s.%.*s",
-            (int) module->size, module->data,
-            (int) name->size, name->data
-        );
-
-        croak(
-            "Failed to create memory %.*s.%.*s, but no Wasmer error?!?",
-            (int) module->size, module->data,
-            (int) name->size, name->data
-        );
-    }
-
-    holder_p->type = type;
-    holder_p->import_type = import_type;
-
-    holder_p->module_sv = module_sv;
-    SvREFCNT_inc(module_sv);
-
-    return holder_p->memory;
-}
-
-static inline void destroy_memory_import_sv (pTHX_ SV* self_sv) {
-    memory_import_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
-
-    warn_destruct_if_needed(self_sv, memory_holder_p->pid);
-
-    if (memory_holder_p->memory) {
-        //wasm_memory_delete(memory_holder_p->memory);
-    }
-
-    if (memory_holder_p->module_sv) {
-        SvREFCNT_dec(memory_holder_p->module_sv);
-    }
-
-    Safefree(memory_holder_p);
 }
 
 // ----------------------------------------------------------------------

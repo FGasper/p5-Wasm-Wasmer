@@ -26,7 +26,6 @@
 #define MEMORY_CLASS "Wasm::Wasmer::Memory"
 #define FUNCTION_CLASS "Wasm::Wasmer::Function"
 
-#define IMP_MEMORY_CLASS "Wasm::Wasmer::Import::Memory"
 #define EXP_MEMORY_CLASS "Wasm::Wasmer::Export::Memory"
 #define EXP_GLOBAL_CLASS "Wasm::Wasmer::Export::Global"
 #define EXP_FUNCTION_CLASS "Wasm::Wasmer::Export::Function"
@@ -530,49 +529,6 @@ create_wasi_instance (SV* self_sv, SV* wasi_sv=NULL, SV* imports_sv=NULL)
 
     OUTPUT:
         RETVAL
-
-# ----------------------------------------------------------------------
-
-MODULE = Wasm::Wasmer     PACKAGE = Wasm::Wasmer::Import::Memory
-
-PROTOTYPES: DISABLE
-
-SV*
-set (SV* self_sv, SV* replacement_sv, SV* offset_sv=NULL)
-    CODE:
-        memory_import_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
-
-        memory_set(aTHX_ memory_holder_p->memory, replacement_sv, offset_sv);
-
-        RETVAL = SvREFCNT_inc(self_sv);
-
-    OUTPUT:
-        RETVAL
-
-SV*
-get (SV* self_sv, SV* offset_sv=NULL, SV* length_sv=NULL)
-    CODE:
-        memory_import_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
-
-        RETVAL = memory_get(aTHX_ memory_holder_p->memory, offset_sv, length_sv);
-
-    OUTPUT:
-        RETVAL
-
-UV
-data_size (SV* self_sv)
-    CODE:
-        memory_import_holder_t* memory_holder_p = svrv_to_ptr(aTHX_ self_sv);
-
-        RETVAL = wasm_memory_data_size( memory_holder_p->memory );
-
-    OUTPUT:
-        RETVAL
-
-void
-DESTROY (SV* self_sv)
-    CODE:
-        destroy_memory_import_sv(aTHX_ self_sv);
 
 # ----------------------------------------------------------------------
 
