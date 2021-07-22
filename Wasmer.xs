@@ -26,8 +26,6 @@
 #define MEMORY_CLASS "Wasm::Wasmer::Memory"
 #define FUNCTION_CLASS "Wasm::Wasmer::Function"
 
-#define EXP_FUNCTION_CLASS "Wasm::Wasmer::Export::Function"
-
 #include "p5_wasm_wasmer.h"
 #include "wasmer_engine.xsc"
 #include "wasmer_store.xsc"
@@ -754,47 +752,6 @@ set (SV* self_sv, SV* newval)
 
     OUTPUT:
         RETVAL
-
-
-
-# ----------------------------------------------------------------------
-
-MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Export::Function
-
-void
-DESTROY (SV* self_sv)
-    CODE:
-        destroy_function_sv(aTHX_ self_sv);
-
-SV*
-name (SV* self_sv)
-    CODE:
-        RETVAL = function_sv_name_sv(aTHX_ self_sv);
-
-    OUTPUT:
-        RETVAL
-
-
-
-# void
-# inputs (SV* self_sv)
-#     PPCODE:
-#         function_holder_t* function_holder_p = _get_function_holder_p_from_sv(aTHX_ self_sv);
-# 
-#         const wasm_externtype_t* externtype = wasm_exporttype_type(&function_holder_p->export_type);
-# 
-#         const wasm_functype_t* functype = wasm_externtype_as_functype_const(externtype);
-# 
-#         const wasm_valtype_vec_t* params = wasm_functype_params(functype);
-# 
-#         unsigned params_count = params->size;
-# 
-#         EXTEND(SP, 2);
-# 
-#         for (unsigned i=0; i<params_count; i++)
-#             mPUSHu( wasm_valtype_kind(params->data[i]) );
-# 
-#         XSRETURN(params_count);
 
 # ----------------------------------------------------------------------
 
