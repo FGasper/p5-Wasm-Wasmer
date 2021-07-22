@@ -6,15 +6,6 @@
 #include "p5_wasm_wasmer.h"
 
 typedef struct {
-    wasm_func_t* function;
-    wasm_exporttype_t* export_type;
-
-    pid_t pid;
-
-    SV* instance_sv;
-} function_holder_t;
-
-typedef struct {
     wasm_func_t* func;
     SV* store_sv;
     pid_t pid;
@@ -37,14 +28,6 @@ SV* function_export_to_sv (pTHX_ SV* store_sv, wasm_extern_t* export_p) {
     HV* stash = gv_stashpv(FUNCTION_CLASS, 0);
 
     return ptr_to_svrv( aTHX_ holder_p, stash );
-}
-
-static inline SV* function_sv_name_sv (pTHX_ SV* self_sv) {
-    function_holder_t* function_holder_p = svrv_to_ptr(aTHX_ self_sv);
-
-    const wasm_name_t* name = wasm_exporttype_name(function_holder_p->export_type);
-
-    return newSVpvn_flags( name->data, name->size, SVf_UTF8 );
 }
 
 static inline void destroy_function_sv (pTHX_ SV* self_sv) {

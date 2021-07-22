@@ -26,7 +26,6 @@
 #define MEMORY_CLASS "Wasm::Wasmer::Memory"
 #define FUNCTION_CLASS "Wasm::Wasmer::Function"
 
-#define EXP_GLOBAL_CLASS "Wasm::Wasmer::Export::Global"
 #define EXP_FUNCTION_CLASS "Wasm::Wasmer::Export::Function"
 
 #include "p5_wasm_wasmer.h"
