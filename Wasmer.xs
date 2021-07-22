@@ -138,9 +138,9 @@ typedef SV* (*export_to_sv_fp)(pTHX_ SV*, wasm_extern_t*);
 
 static inline export_to_sv_fp get_export_to_sv_fp (wasm_externkind_t kind) {
     export_to_sv_fp fp = (
-        (kind == WASM_EXTERN_FUNC) ? function_export_to_sv :
-        (kind == WASM_EXTERN_MEMORY) ? memory_export_to_sv :
-        (kind == WASM_EXTERN_GLOBAL) ? global_export_to_sv :
+        (kind == WASM_EXTERN_FUNC) ? function_to_sv :
+        (kind == WASM_EXTERN_MEMORY) ? memory_to_sv :
+        (kind == WASM_EXTERN_GLOBAL) ? global_to_sv :
         NULL
     );
 
@@ -302,10 +302,9 @@ create_i32_const (SV* self_sv, SV* value_sv)
             assert(0 /* Failed to create global */);
         }
 
-        RETVAL = extern_to_sv( aTHX_
+        RETVAL = global_to_sv( aTHX_
             self_sv,
-            wasm_global_as_extern(global),
-            GLOBAL_CLASS
+            wasm_global_as_extern(global)
         );
 
     OUTPUT:
@@ -339,8 +338,6 @@ create_memory (SV* self_sv, ...)
         }
 
         if (!saw_initial) croak("Need `initial`");
-
-        store_holder_t* s_holder = svrv_to_ptr(self_sv);
 
         RETVAL = new_memory_import_sv(aTHX_ self_sv, &limits);
 
@@ -694,16 +691,18 @@ PROTOTYPES: DISABLE
 void
 call (SV* self_sv, ...)
     PPCODE:
-        func_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
+        extern_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
 
-        unsigned count = _call_wasm( aTHX_ SP, holder_p->func, &ST(1), items - 1 );
+        wasm_func_t* func = wasm_extern_as_func( holder_p->extern_p );
+
+        unsigned count = _call_wasm( aTHX_ SP, func, &ST(1), items - 1 );
 
         XSRETURN(count);
 
 void
 DESTROY (SV* self_sv)
     CODE:
-        destroy_function_sv(aTHX_ self_sv);
+        destroy_extern_sv(aTHX_ self_sv);
 
 # ----------------------------------------------------------------------
 

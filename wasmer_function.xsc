@@ -4,40 +4,10 @@
 #include <assert.h>
 
 #include "p5_wasm_wasmer.h"
+#include "wasmer_extern.xsc"
 
-typedef struct {
-    wasm_func_t* func;
-    SV* creator_sv;
-    pid_t pid;
-} func_holder_t;
-
-SV* function_export_to_sv (pTHX_ SV* creator_sv, wasm_extern_t* export_p) {
-    wasm_func_t* func = wasm_extern_as_func(export_p);
-
-    func_holder_t* holder_p;
-    Newx(holder_p, 1, func_holder_t);
-
-    *holder_p = (func_holder_t) {
-        .func = func,
-        .creator_sv = creator_sv,
-        .pid = getpid(),
-    };
-
-    SvREFCNT_inc(creator_sv);
-
-    HV* stash = gv_stashpv(FUNCTION_CLASS, 0);
-
-    return ptr_to_svrv( aTHX_ holder_p, stash );
-}
-
-static inline void destroy_function_sv (pTHX_ SV* self_sv) {
-    func_holder_t* function_holder_p = svrv_to_ptr(aTHX_ self_sv);
-
-    warn_destruct_if_needed(self_sv, function_holder_p->pid);
-
-    SvREFCNT_dec( function_holder_p->creator_sv );
-
-    Safefree(function_holder_p);
+SV* function_to_sv (pTHX_ SV* creator_sv, wasm_extern_t* export_p) {
+    return extern_to_sv(aTHX_ creator_sv, export_p, FUNCTION_CLASS);
 }
 
 #endif

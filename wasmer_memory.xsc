@@ -11,6 +11,10 @@
         offset, len, offset + len, buflen \
     )
 
+SV* memory_to_sv (pTHX_ SV* creator_sv, wasm_extern_t* export_p) {
+    return extern_to_sv(aTHX_ creator_sv, export_p, MEMORY_CLASS);
+}
+
 static inline void memory_set (pTHX_ extern_holder_t* holder_p, SV* replacement_sv, SV* offset_sv) {
     wasm_extern_t* extern_p = holder_p->extern_p;
     wasm_memory_t* memory = wasm_extern_as_memory(extern_p);

@@ -6,7 +6,7 @@
 
 // ----------------------------------------------------------------------
 
-SV* global_export_to_sv (pTHX_ SV* creator_sv, wasm_extern_t* export_p) {
+SV* global_to_sv (pTHX_ SV* creator_sv, wasm_extern_t* export_p) {
     return extern_to_sv(aTHX_ creator_sv, export_p, GLOBAL_CLASS);
 }
 
@@ -25,14 +25,6 @@ SV* global_sv_mutability_sv (pTHX_ SV* self_sv) {
     extern_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
 
     return newSVuv(_get_mutability(holder_p));
-}
-
-static inline SV* _wasm_global_to_sv (pTHX_ wasm_global_t* global) {
-    wasm_val_t val;
-
-    wasm_global_get( global, &val );
-
-    return ww_val2sv(aTHX_ &val);
 }
 
 static inline void _wasm_global_set_sv (pTHX_ wasm_global_t* global, SV* newval) {
@@ -54,7 +46,13 @@ static inline void destroy_global_sv (pTHX_ SV* self_sv) {
 // ----------------------------------------------------------------------
 
 static inline SV* global_holder_get_sv (pTHX_ extern_holder_t* holder_p) {
-    return _wasm_global_to_sv(aTHX_ wasm_extern_as_global(holder_p->extern_p));
+    wasm_global_t* global = wasm_extern_as_global(holder_p->extern_p);
+
+    wasm_val_t val;
+
+    wasm_global_get( global, &val );
+
+    return ww_val2sv(aTHX_ &val);
 }
 
 static inline void global_holder_set_sv (pTHX_ extern_holder_t* holder_p, SV* newval) {
