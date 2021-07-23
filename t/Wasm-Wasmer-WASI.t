@@ -149,7 +149,7 @@ sub test_fd_write : Tests(4) {
             $wasi,
         );
 
-        my $mem     = ( $instance->export_memories() )[0];
+        my $mem     = $instance->export('memory');
         my $payload = 'hello';
 
         # Cribbed from as-wasi’s use of fd_write and wasi.rs:

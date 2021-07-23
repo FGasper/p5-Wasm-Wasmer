@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-package t::Wasm::Wasmer::Export::Global;
+package t::Wasm::Wasmer::Global;
 
 use strict;
 use warnings;
@@ -11,13 +11,15 @@ use Test2::Plugin::NoWarnings;
 
 use parent 'Test::Class';
 
+use Encode;
+
 use Wasm::Wasmer;
 use Wasm::Wasmer::Module;
 
-use constant _WAT => <<'END';
+use constant _WAT => Encode::decode_utf8(<<'END');
 (module
-   (global (export "constGlobal") i32 (i32.const 42))
-   (global (export "mutGlobal") (mut i32) (i32.const 24))
+   (global (export "é-const") i32 (i32.const 42))
+   (global (export "é-mut") (mut i32) (i32.const 24))
 )
 END
 
@@ -28,28 +30,29 @@ sub test_globals : Tests(4) {
 
     my @globals = do {
         my $module   = Wasm::Wasmer::Module->new($wasm);
-        my $instance = $module->create_instance();
+        my $i = $module->create_instance();
 
-        $instance->export_globals();
+        map { $i->export( Encode::decode_utf8($_) ) } (
+            "é-const",
+            "é-mut",
+        );
     };
 
     is(
         \@globals,
         [
             object {
-                prop blessed    => 'Wasm::Wasmer::Export::Global';
-                call name       => 'constGlobal';
+                prop blessed    => 'Wasm::Wasmer::Global';
                 call mutability => Wasm::Wasmer::WASM_CONST;
                 call get        => 42;
             },
             object {
-                prop blessed    => 'Wasm::Wasmer::Export::Global';
-                call name       => 'mutGlobal';
+                prop blessed    => 'Wasm::Wasmer::Global';
                 call mutability => Wasm::Wasmer::WASM_VAR;
                 call get        => 24;
             },
         ],
-        'export_globals() outputs expected objects',
+        'export() outputs expected objects',
     );
 
     my $got = $globals[1]->set(244);
@@ -60,7 +63,11 @@ sub test_globals : Tests(4) {
 
     is(
         $err,
-        match(qr<constGlobal>),
+        check_set(
+            match qr<i32>,
+            match qr<constant>,
+            match(qr<global>),
+        ),
         'error on set() of a constant',
     );
 
