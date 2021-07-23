@@ -378,7 +378,6 @@ sub test_export : Tests(1) {
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
 
     my $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_instance();
-diag "got instance";
 
     is(
         $instance,
