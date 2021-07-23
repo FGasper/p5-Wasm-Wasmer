@@ -51,7 +51,7 @@ wasm_trap_t* host_func_callback( void* env, const wasm_val_vec_t* args, wasm_val
         PUTBACK;
     }
 
-    I32 callflags = 0;
+    I32 callflags = G_EVAL;
 
     switch (results->size) {
         case 0:
@@ -73,7 +73,20 @@ wasm_trap_t* host_func_callback( void* env, const wasm_val_vec_t* args, wasm_val
 
     wasm_trap_t* trap = NULL;
 
-    if (got_count == results->size) {
+    SV* err = ERRSV;
+    if (SvTRUE(err)) {
+        STRLEN errlen;
+        const char* errstr = SvPVbyte(err, errlen);
+
+        wasm_byte_vec_t vector;
+        wasm_byte_vec_new(&vector, errlen, errstr);
+
+        trap = wasm_trap_new(
+            callback_holder_p->store,
+            &vector
+        );
+    }
+    else if (got_count == results->size) {
         for (I32 g=got_count-1; g >= 0; g--) {
             wasm_val_t* result = &results->data[g];
 

@@ -231,6 +231,37 @@ sub test_func_import_context : Tests(2) {
     return;
 }
 
+sub test_func_die : Tests(1) {
+    my $ok_wat  = join(
+        "\n",
+        '(module',
+        '   (import "my" "croaker" (func $vf))',
+        '   (func (export "voidfunc") call $vf)',
+        ')',
+    );
+    my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
+
+    my $wantarray;
+
+    my $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_instance(
+        {
+            my => {
+                croaker   => sub { die "nonono" },
+            },
+        },
+    );
+
+    my $err = dies { $instance->call('voidfunc') };
+
+    is(
+        $err,
+        match( qr<nonono> ),
+        'expected error',
+    );
+
+    return;
+}
+
 sub test_func_import : Tests(7) {
     my $ok_wat  = _WAT_IMPORTS;
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
