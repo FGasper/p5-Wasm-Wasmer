@@ -1,5 +1,8 @@
 package Wasm::Wasmer;
 
+use strict;
+use warnings;
+
 # TODO: better plan for these
 use Wasm::Wasmer::Function;
 use Wasm::Wasmer::Memory;
@@ -49,18 +52,28 @@ yielding a simple, fast way to run WebAssembly (WASM) in Perl.
 We mostly follow the relationships from
 L<Wasmer’s C API|https://docs.rs/wasmer-c-api>:
 
-=head2 * L<Wasm::Wasmer::Store> manages Wasmer’s global state.
-It contains compiler & engine configuration as well. This
-object is also auto-created by default, so you may not need to
-worry about this one.
+=head2 * L<Wasm::Wasmer::Store> manages Wasmer’s global state, including
+storage of any imports & exports. It contains compiler & engine
+configuration as well. This object is auto-created by default.
 
-=head2 * L<Wasm::Wasmer::Module> uses a L<Wasm::Wasmer::Store> object
+=head2 * L<Wasm::Wasmer::Module> uses a L<Wasm::Wasmer::Store> instance
 to represent a parsed WASM module. (This one you have to instantiate
 manually.)
 
-=head2 * L<Wasm::Wasmer::Instance> uses a L<Wasm::Wasmer::Module> object
+=head2 * L<Wasm::Wasmer::Instance> uses a L<Wasm::Wasmer::Module> instance
 to represent an in-progress WASM program. You’ll instantiate these
 via methods on the L<Wasm::Wasmer::Module> object.
+
+=head1 CHARACTER ENCODING
+
+Generally speaking, strings that in common usage are human-readable
+(e.g., names of imports & exports) are character strings. Ensure
+that you’re properly character-decoded such strings, or you’ll have
+encoding weirdness.
+
+(TIP: Always incorporate code points 128-255 into your testing.)
+
+Binary payloads (e.g., memory contents) are byte strings.
 
 =head1 SEE ALSO
 

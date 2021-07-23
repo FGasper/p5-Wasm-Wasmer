@@ -27,6 +27,8 @@
 #define MEMORY_CLASS "Wasm::Wasmer::Memory"
 #define FUNCTION_CLASS "Wasm::Wasmer::Function"
 
+#define P5_WASM_WASMER_INSTANCE_CLASS "Wasm::Wasmer::Instance"
+
 #include "p5_wasm_wasmer.h"
 #include "wasmer_engine.xsc"
 #include "wasmer_store.xsc"
@@ -108,25 +110,6 @@ unsigned _call_wasm( pTHX_ SV** SP, wasm_func_t* function, SV** given_arg, unsig
     return results_count;
 }
 
-static inline void _start_wasi_if_needed(pTHX_ instance_holder_t* instance_holder_p) {
-    if (!instance_holder_p->wasi_sv) return;
-
-    if (instance_holder_p->wasi_started) return;
-
-    instance_holder_p->wasi_started = true;
-
-    wasm_func_t* func = wasi_get_start_function(instance_holder_p->instance);
-
-    wasm_val_t args_val[] = {};
-    wasm_val_t results_val[] = {};
-    wasm_val_vec_t args = WASM_ARRAY_VEC(args_val);
-    wasm_val_vec_t results = WASM_ARRAY_VEC(results_val);
-
-    own wasm_trap_t* trap = wasm_func_call(func, &args, &results);
-
-    _croak_if_trap(aTHX_ trap);
-}
-
 static inline void _wasi_config_delete( wasi_config_t* config ) {
     wasi_env_t* wasienv = wasi_env_new(config);
     wasi_env_delete(wasienv);
@@ -145,54 +128,6 @@ static inline export_to_sv_fp get_export_to_sv_fp (wasm_externkind_t kind) {
     if (!fp) assert(0);
 
     return fp;
-}
-
-static unsigned xs_export_kind_list (pTHX_ SV** SP, SV* self_sv, wasm_externkind_t kind) {
-    if (GIMME_V != G_ARRAY) croak("List context only!");
-
-    instance_holder_t* instance_holder_p = svrv_to_ptr(aTHX_ self_sv);
-
-    module_holder_t* module_holder_p = svrv_to_ptr(aTHX_ instance_holder_p->module_sv);
-
-    wasm_exporttype_vec_t* export_types = &module_holder_p->export_types;
-
-    wasm_extern_vec_t* exports = &instance_holder_p->exports;
-
-    unsigned return_count = 0;
-
-    SV* possible_export_sv[exports->size];
-
-    export_to_sv_fp export_to_sv = get_export_to_sv_fp(kind);
-
-    HV* ret = newHV();
-
-    sv_2mortal( (SV*) ret );
-
-    for (unsigned i = 0; i<exports->size; i++) {
-        if (wasm_extern_kind(exports->data[i]) != kind)
-            continue;
-
-        const wasm_name_t* name = wasm_exporttype_name(export_types->data[i]);
-
-        hv_store(ret, name->data, -name->size,
-            export_to_sv( aTHX_
-                module_holder_p->store_sv,
-                exports->data[i]
-            ),
-            0
-        );
-
-        return_count++;
-    }
-
-    if (return_count) {
-        EXTEND(SP, return_count);
-
-        for (unsigned i=0; i<return_count; i++)
-            mPUSHs(possible_export_sv[i]);
-    }
-
-    return return_count;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -360,6 +295,15 @@ new (SV* class_sv, SV* wasm_sv, SV* store_sv=NULL)
         if (!SvPOK(class_sv)) croak("Give a class name!");
 
         RETVAL = create_module_sv(aTHX_ class_sv, wasm_sv, store_sv);
+
+    OUTPUT:
+        RETVAL
+
+SV*
+store (SV* self_sv)
+    CODE:
+        module_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
+        RETVAL = SvREFCNT_inc(holder_p->store_sv);
 
     OUTPUT:
         RETVAL
@@ -582,21 +526,6 @@ export (SV* self_sv, SV* search_name)
     OUTPUT:
         RETVAL
 
-# void
-# export_memories (SV* self_sv)
-#     PPCODE:
-#         XSRETURN( xs_export_kind_list(aTHX_ SP, self_sv, WASM_EXTERN_MEMORY) );
-# 
-# void
-# export_globals (SV* self_sv)
-#     PPCODE:
-#         XSRETURN( xs_export_kind_list(aTHX_ SP, self_sv, WASM_EXTERN_GLOBAL) );
-# 
-# void
-# export_functions (SV* self_sv)
-#     PPCODE:
-#         XSRETURN( xs_export_kind_list(aTHX_ SP, self_sv, WASM_EXTERN_FUNC) );
-
 void
 call (SV* self_sv, SV* funcname_sv, ...)
     PPCODE:
@@ -615,7 +544,7 @@ call (SV* self_sv, SV* funcname_sv, ...)
             croak("No function named “%" SVf "” exists!", funcname_sv);
         }
 
-        _start_wasi_if_needed(aTHX_ instance_holder_p);
+        start_wasi_if_needed(aTHX_ instance_holder_p);
 
         unsigned retvals = _call_wasm( aTHX_ SP, func, &ST(2), given_args_count );
 
@@ -746,6 +675,8 @@ void
 call (SV* self_sv, ...)
     PPCODE:
         extern_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+        function_start_wasi_if_needed(aTHX_ holder_p);
 
         wasm_func_t* func = wasm_extern_as_func( holder_p->extern_p );
 

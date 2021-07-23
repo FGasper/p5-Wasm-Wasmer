@@ -18,6 +18,8 @@ wasi_holder_t* wasi_env_to_holder (pTHX_ wasi_env_t* wasienv) {
     return wasi_holder_p;
 }
 
+// ----------------------------------------------------------------------
+
 #define _read_wasi(wasienv, len, readfn) STMT_START {    \
     char output[len];                           \
                                                 \
@@ -33,6 +35,27 @@ SV* wasi_holder_read_stdout (pTHX_ wasi_holder_t* holder, STRLEN len) {
 
 SV* wasi_holder_read_stderr (pTHX_ wasi_holder_t* holder, STRLEN len) {
     _read_wasi(holder->env, len, wasi_env_read_stderr);
+}
+
+// ----------------------------------------------------------------------
+
+static inline void start_wasi_if_needed(pTHX_ instance_holder_t* instance_holder_p) {
+    if (!instance_holder_p->wasi_sv) return;
+
+    if (instance_holder_p->wasi_started) return;
+
+    instance_holder_p->wasi_started = true;
+
+    wasm_func_t* func = wasi_get_start_function(instance_holder_p->instance);
+
+    wasm_val_t args_val[] = {};
+    wasm_val_t results_val[] = {};
+    wasm_val_vec_t args = WASM_ARRAY_VEC(args_val);
+    wasm_val_vec_t results = WASM_ARRAY_VEC(results_val);
+
+    own wasm_trap_t* trap = wasm_func_call(func, &args, &results);
+
+    _croak_if_trap(aTHX_ trap);
 }
 
 #endif

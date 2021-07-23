@@ -67,19 +67,39 @@ that just returns the number 2:
     );
 
 Other import types are rather more complex because they’re interactive;
-thus, you have to create them:
+thus, you have to create them prior to calling C<create_instance()> and
+include your import objects in %IMPORTS.
 
-    my $const = $module->create_global( i32 => 42 );
-    my $var = $module->create_global( i32 => 42, Wasm::Wasmer::WASM_VAR );
+    my $const = $module->store()->create_i32_const( 42 );
+    my $var   = $module->store()->create_f64_mut( 2.718281828 );
 
-    my $memory = $module->create_memory( min => 3, max => 5 );
+    my $memory = $module->store()->create_memory( initial => 3 );
 
 (Tables are currently unsupported.)
+
+So, if we alter our above example to import our constants and memory
+as well as the function, we have:
+
+    my $instance = $module->create_instance(
+        {
+            ns => {
+                give2 => sub { 2 },
+
+                # These values are all pre-created objects:
+                constvar => $const,
+                mutvar   => $mut,
+                memory   => $memory,
+            },
+        },
+    );
+
+NB: Instances can share imports, even if they’re instances of different
+WASM modules.
 
 =head2 $instance = I<OBJ>->create_wasi_instance( $WASI, [ \%IMPORTS ] )
 
 Creates a L<Wasm::Wasmer::Instance> instance from I<OBJ>.
-That object’s WebAssembly imports will be the L<WASI|https://wasi.dev>
+That object’s WebAssembly imports will include the L<WASI|https://wasi.dev>
 interface.
 
 $WASI argument is either undef or a L<Wasm::Wasmer::WASI> instance.

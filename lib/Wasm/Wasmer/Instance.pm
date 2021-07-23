@@ -30,17 +30,22 @@ This class represents an active instance of a given module.
 Instances of this class are created via L<Wasm::Wasmer::Module>
 instances. They expose the following methods:
 
+=head2 $obj = I<OBJ>->export( $NAME_TXT )
+
+Returns an instance of a L<Wasm::Wasmer::Extern> subclass that I<OBJ>
+associates with the given $NAME_TXT (text string).
+
+If I<OBJ> contains no such object then undef is returned.
+
+=head2 $names_ar = I<OBJ>->export_names_ar()
+
+Returns a reference to an array of the names of all of I<OBJ>’s exports.
+
 =head2 @ret = I<OBJ>->call( $FUNCNAME, @INPUTS )
 
-Calls the exported function named $FUNCNAME, passing the given @INPUTS
-and returning the returned values as a list.
+A convenience around:
 
-@INPUTS B<must> match the function’s export signature in both type and
-length; e.g., if a function expects (i32, f64) and you pass (4.3, 12),
-or give too many or too few parameters, an exception will be thrown.
-
-If the function returns multiple items, scalar context is forbidden.
-(Void context is always allowed, though.)
+    $obj->export($FUNCNAME)->call(@INPUTS);
 
 =cut
 

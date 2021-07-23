@@ -9,8 +9,6 @@
 #include "wasmer_function.xsc"
 #include "wasmer_callback.xsc"
 
-#define P5_WASM_WASMER_INSTANCE_CLASS "Wasm::Wasmer::Instance"
-
 typedef struct {
     wasm_instance_t* instance;
     SV* module_sv;

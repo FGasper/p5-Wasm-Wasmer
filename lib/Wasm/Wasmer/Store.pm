@@ -35,7 +35,7 @@ modules for a bit more context.
 
 =cut
 
-=head1 METHODS
+=head1 CONSTRUCTOR
 
 =head2 $obj = I<CLASS>->new( %OPTS )
 
@@ -52,6 +52,64 @@ Currently that includes:
 =item * C<engine> - C<universal>, C<dylib>
 
 =back
+
+=head2 IMPORTS
+
+To import a global or memory into WebAssembly you first need to create
+a Perl object to represent that WebAssembly object.
+
+The following create WebAssembly objects the store and return Perl objects
+that interact with those WebAssembly objects.
+
+(NB: The Perl objects do I<not> trigger destruction of the WebAssembly objects
+when they go away. Only destroying the store achieves that.)
+
+=head3 $obj = I<OBJ>->create_memory( %OPTS )
+
+Creates a WebAssembly memory and a Perl L<Wasm::Wasmer::Memory> instance
+to interface with it. %OPTS are:
+
+=over
+
+=item * C<initial> (required)
+
+=item * C<maximum>
+
+=back
+
+The equivalent JavaScript interface is C<WebAssembly.Memory()>; see L<its documentation|https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WebAssembly/Memory/Memory> for more details.
+
+=head3 Globals
+
+Rather than a single method, this class exposes separate methods to create
+globals of different types:
+
+=over
+
+=item * I<OBJ>->create_i32_const($VALUE)
+
+=item * I<OBJ>->create_i32_mut($VALUE)
+
+=item * I<OBJ>->create_i64_const($VALUE)
+
+=item * I<OBJ>->create_i64_mut($VALUE)
+
+=item * I<OBJ>->create_f32_const($VALUE)
+
+=item * I<OBJ>->create_f32_mut($VALUE)
+
+=item * I<OBJ>->create_f64_const($VALUE)
+
+=item * I<OBJ>->create_f64_mut($VALUE)
+
+=back
+
+Each of the above creates a WebAssembly global and a Perl
+L<Wasm::Wasmer::Global> instance to interface with it.
+
+=head3 Tables
+
+(Unsupported for now.)
 
 =cut
 
