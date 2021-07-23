@@ -628,6 +628,17 @@ DESTROY (SV* self_sv)
 
 # ----------------------------------------------------------------------
 
+MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Extern
+
+PROTOTYPES: DISABLE
+
+void
+DESTROY (SV* self_sv)
+    CODE:
+        destroy_extern_sv(aTHX_ self_sv);
+
+# ----------------------------------------------------------------------
+
 MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Global
 
 PROTOTYPES: DISABLE
@@ -659,11 +670,6 @@ mutability (SV* self_sv)
 
     OUTPUT:
         RETVAL
-
-void
-DESTROY (SV* self_sv)
-    CODE:
-        destroy_global_sv(aTHX_ self_sv);
 
 # ----------------------------------------------------------------------
 
@@ -730,11 +736,6 @@ data_size (SV* self_sv)
     OUTPUT:
         RETVAL
 
-void
-DESTROY (SV* self_sv)
-    CODE:
-        destroy_memory_sv(aTHX_ self_sv);
-
 # ----------------------------------------------------------------------
 
 MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Function
@@ -751,11 +752,6 @@ call (SV* self_sv, ...)
         unsigned count = _call_wasm( aTHX_ SP, func, &ST(1), items - 1 );
 
         XSRETURN(count);
-
-void
-DESTROY (SV* self_sv)
-    CODE:
-        destroy_extern_sv(aTHX_ self_sv);
 
 # ----------------------------------------------------------------------
 
