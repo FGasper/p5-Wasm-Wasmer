@@ -463,7 +463,6 @@ export_names_ar (SV* self_sv)
             for (unsigned i = 0; i < export_types->size; i++) {
                 const wasm_name_t* name = wasm_exporttype_name(export_types->data[i]);
                 SV* newsv = newSVpvn_flags(name->data, name->size, SVf_UTF8);
-            sv_dump(newsv);
                 av_store(ret, i, newsv);
             }
         }
