@@ -6,6 +6,8 @@
 #include "p5_wasm_wasmer.h"
 #include "wasmer_extern.xsc"
 #include "wasmer_callback.xsc"
+#include "wasmer_instance.xsc"
+#include "wasmer_wasi.xsc"
 
 SV* function_to_sv (pTHX_ SV* creator_sv, wasm_extern_t* export_p) {
     return extern_to_sv(aTHX_ creator_sv, export_p, FUNCTION_CLASS);
@@ -17,7 +19,7 @@ static inline void function_start_wasi_if_needed (pTHX_ extern_holder_t* holder_
     if (sv_derived_from(creator_sv, P5_WASM_WASMER_INSTANCE_CLASS)) {
         instance_holder_t* instance_holder_p = svrv_to_ptr(aTHX_ creator_sv);
 
-        _start_wasi_if_needed(aTHX_ instance_holder_p);
+        start_wasi_if_needed(aTHX_ instance_holder_p);
     }
 }
 

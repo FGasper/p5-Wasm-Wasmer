@@ -6,6 +6,15 @@
 
 typedef size_t usize;
 
+#define WASI_CLASS "Wasm::Wasmer::WASI"
+
+#define EXTERN_CLASS "Wasm::Wasmer::Extern"
+#define GLOBAL_CLASS "Wasm::Wasmer::Global"
+#define MEMORY_CLASS "Wasm::Wasmer::Memory"
+#define FUNCTION_CLASS "Wasm::Wasmer::Function"
+
+#define P5_WASM_WASMER_INSTANCE_CLASS "Wasm::Wasmer::Instance"
+
 #define _IN_GLOBAL_DESTRUCTION (PL_phase == PERL_PHASE_DESTRUCT)
 
 #define warn_destruct_if_needed(sv, startpid) STMT_START { \

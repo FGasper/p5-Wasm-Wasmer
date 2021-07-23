@@ -18,6 +18,8 @@ wasi_holder_t* wasi_env_to_holder (pTHX_ wasi_env_t* wasienv) {
     return wasi_holder_p;
 }
 
+#include "wasmer_instance.xsc"
+
 // ----------------------------------------------------------------------
 
 #define _read_wasi(wasienv, len, readfn) STMT_START {    \

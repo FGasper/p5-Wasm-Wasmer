@@ -3,12 +3,6 @@
 
 #include "p5_wasm_wasmer.h"
 
-#include "wasmer_module.xsc"
-#include "wasmer_global.xsc"
-#include "wasmer_memory.xsc"
-#include "wasmer_function.xsc"
-#include "wasmer_callback.xsc"
-
 typedef struct {
     wasm_instance_t* instance;
     SV* module_sv;
@@ -21,6 +15,12 @@ typedef struct {
     wasm_extern_vec_t exports;
     wasm_extern_vec_t imports;
 } instance_holder_t;
+
+#include "wasmer_module.xsc"
+#include "wasmer_global.xsc"
+#include "wasmer_memory.xsc"
+#include "wasmer_function.xsc"
+#include "wasmer_callback.xsc"
 
 /* ---------------------------------------------------------------------- */
 
