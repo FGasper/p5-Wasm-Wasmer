@@ -112,7 +112,6 @@ static inline SV* _get_import_sv( pTHX_ HV* imports_hv, const wasm_name_t* modna
 }
 
 SV* instance_to_sv (pTHX_ wasm_instance_t* instance, SV* module_sv, wasm_extern_vec_t imports, const char* class) {
-fprintf(stderr, "instance_to_sv\n");
     instance_holder_t* instance_holder_p;
 
     Newx(instance_holder_p, 1, instance_holder_t);

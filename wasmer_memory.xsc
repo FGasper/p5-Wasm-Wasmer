@@ -15,6 +15,17 @@ SV* memory_to_sv (pTHX_ SV* creator_sv, wasm_extern_t* export_p) {
     return extern_to_sv(aTHX_ creator_sv, export_p, MEMORY_CLASS);
 }
 
+wasm_limits_t memory_limits (pTHX_ extern_holder_t* holder_p) {
+    wasm_extern_t* extern_p = holder_p->extern_p;
+    wasm_memory_t* memory = wasm_extern_as_memory(extern_p);
+
+    own wasm_memorytype_t* memtype = wasm_memory_type(memory);
+    wasm_limits_t limits = *(wasm_memorytype_limits(memtype));
+    wasm_memorytype_delete(memtype);
+
+    return limits;
+}
+
 static inline void memory_set (pTHX_ extern_holder_t* holder_p, SV* replacement_sv, SV* offset_sv) {
     wasm_extern_t* extern_p = holder_p->extern_p;
     wasm_memory_t* memory = wasm_extern_as_memory(extern_p);
@@ -39,6 +50,24 @@ static inline void memory_set (pTHX_ extern_holder_t* holder_p, SV* replacement_
     char *buf = wasm_memory_data(memory);
 
     Copy(replacement, buf + offset, replen, void);
+}
+
+static inline void memory_grow (pTHX_ extern_holder_t* holder_p, SV* delta_sv) {
+    U32 delta = grok_u32(aTHX_ delta_sv);
+
+    wasm_extern_t* extern_p = holder_p->extern_p;
+    wasm_memory_t* memory = wasm_extern_as_memory(extern_p);
+
+    bool ok = wasm_memory_grow(memory, delta);
+
+    if (!ok) {
+        wasm_limits_t limits = memory_limits(aTHX_ holder_p);
+
+        // Wasmer doesn’t actually populate this for now, it seems …
+        _croak_if_wasmer_error("Failed to grow memory by %u (min=%u, max=%u)", delta, limits.min, limits.max);
+
+        croak("Failed to grow memory by %u (min=%u, max=%u)", delta, limits.min, limits.max);
+    }
 }
 
 static inline SV* memory_get (pTHX_ extern_holder_t* holder_p, SV* offset_sv, SV* length_sv) {
@@ -103,9 +132,11 @@ SV* new_memory_import_sv(pTHX_ SV* store_sv, wasm_limits_t* limits_p) {
 
     wasm_memorytype_delete(memtype);
 
+    //fprintf(stderr, "min: %u; max: %u\n", limits_p->min, limits_p->max);
+
     if (!memory) {
         _croak_if_wasmer_error(
-            "Failed to create a memory (initial=%u, max=%u)",
+            "Failed to create a memory (initial=%u, maximum=%u)",
             limits_p->min,
             limits_p->max
         );

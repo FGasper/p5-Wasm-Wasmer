@@ -267,8 +267,8 @@ sub test_func_import : Tests(7) {
     is(
         $err,
         check_set(
-            match(qr<2>),    # expected
-            match(qr<3>),    # received
+            match(qr<2>),           # expected
+            match(qr<3>),           # received
         ),
         'error when callback mismatches expected returns count',
     );
@@ -280,7 +280,7 @@ sub test_func_import : Tests(7) {
     is(
         $err,
         check_set(
-            match(qr<scalar>),    # expected
+            match(qr<scalar>),      # expected
         ),
         'error when list-returning WASM function called in scalar context',
     );
@@ -329,12 +329,56 @@ sub test_func_import : Tests(7) {
     return;
 }
 
+sub test_memory_limits_and_grow_fail : Tests(5) {
+    my $store = Wasm::Wasmer::Store->new();
+
+    my $mem = $store->create_memory( initial => 22, maximum => 37 );
+
+    is(
+        $mem->data_size(),
+        22 * 65536,
+        'initial size',
+    );
+
+    is(
+        [ $mem->limits() ],
+        [ 22, 37 ],
+        'limits()',
+    );
+
+    is(
+        $mem->grow(5),
+        $mem,
+        'grow() returns $self',
+    );
+
+    is(
+        $mem->data_size(),
+        27 * 65536,
+        'grown size',
+    );
+
+    my $err = dies { $mem->grow(100000) };
+
+    is(
+        $err,
+        check_set(
+            match qr<27>,
+            match qr<37>,
+            match qr<100000>,
+        ),
+        'error when trying to over-grow() memory',
+    );
+
+    return;
+}
+
 sub test_export : Tests(1) {
     my $ok_wat  = _WAT;
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
 
     my $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_instance();
-    diag "got instance";
+diag "got instance";
 
     is(
         $instance,
@@ -345,6 +389,12 @@ sub test_export : Tests(1) {
 
             call [ export => 'varglobal' ] => object {
                 prop blessed => 'Wasm::Wasmer::Global';
+                call mutability => Wasm::Wasmer::WASM_VAR;
+            };
+
+            call [ export => 'constglobal' ] => object {
+                prop blessed => 'Wasm::Wasmer::Global';
+                call mutability => Wasm::Wasmer::WASM_CONST;
             };
 
             call [ export => 'pagememory' ] => object {
@@ -409,8 +459,8 @@ sub test_import_memory : Tests(3) {
 
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
 
-    my $store  = Wasm::Wasmer::Store->new();
-    my $module = Wasm::Wasmer::Module->new( $ok_wasm, $store );
+    my $store = Wasm::Wasmer::Store->new();
+    my $module = Wasm::Wasmer::Module->new($ok_wasm, $store);
 
     my $mem = $store->create_memory( initial => 2 );
 
@@ -457,8 +507,8 @@ sub test_import_globals_types : Tests(1) {
 
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
 
-    my $store  = Wasm::Wasmer::Store->new();
-    my $module = Wasm::Wasmer::Module->new( $ok_wasm, $store );
+    my $store = Wasm::Wasmer::Store->new();
+    my $module = Wasm::Wasmer::Module->new($ok_wasm, $store);
 
     my $instance = $module->create_instance(
         {
@@ -496,8 +546,8 @@ sub test_import_globals_mutability : Tests(6) {
 
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
 
-    my $store  = Wasm::Wasmer::Store->new();
-    my $module = Wasm::Wasmer::Module->new( $ok_wasm, $store );
+    my $store = Wasm::Wasmer::Store->new();
+    my $module = Wasm::Wasmer::Module->new($ok_wasm, $store);
 
     my $const = $store->create_i32_const(5);
     my $var   = $store->create_i32_mut(500);
@@ -648,7 +698,7 @@ sub test_global_export : Tests(8) {
 
     is( $tellvarglobal_f->call(), 123, 'tellvarglobal - initial' );
 
-    my $global      = $instance->export('varglobal');
+    my $global = $instance->export('varglobal');
     my $constglobal = $instance->export('constglobal');
 
     is(

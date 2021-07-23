@@ -118,6 +118,14 @@ static inline UV grok_uv (pTHX_ SV* sv) {
     croak("`%" SVf "` given where unsigned integer expected!", sv);
 }
 
+static inline U32 grok_u32 (pTHX_ SV* sv) {
+    UV uv = grok_uv(aTHX_ sv);
+
+    if (uv > U32_MAX) croak("%" UVuf " is too big for u32!", uv);
+
+    return uv;
+}
+
 // This really ought to be in Perl’s API, or some standard XS toolkit …
 static inline IV grok_iv (pTHX_ SV* sv) {
     if (SvIOK_notUV(sv)) return SvIV(sv);

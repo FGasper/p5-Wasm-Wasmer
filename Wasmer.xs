@@ -53,7 +53,6 @@ void print_wasmer_error()
 /* ---------------------------------------------------------------------- */
 
 unsigned _call_wasm( pTHX_ SV** SP, wasm_func_t* function, SV** given_arg, unsigned given_args_count ) {
-fprintf(stderr, "_call_wasm start\n");
 
     own wasm_functype_t* functype = wasm_func_type(function);
 
@@ -94,9 +93,7 @@ fprintf(stderr, "_call_wasm start\n");
     wasm_val_vec_t params_vec = WASM_ARRAY_VEC(wasm_param);
     wasm_val_vec_t results_vec = WASM_ARRAY_VEC(wasm_result);
 
-fprintf(stderr, "before func_call\n");
     own wasm_trap_t* trap = wasm_func_call(function, &params_vec, &results_vec);
-fprintf(stderr, "after func_call\n");
 
     _croak_if_trap(aTHX_ trap);
 
@@ -699,6 +696,31 @@ get (SV* self_sv, SV* offset_sv=NULL, SV* length_sv=NULL)
 
     OUTPUT:
         RETVAL
+
+SV*
+grow (SV* self_sv, SV* delta_sv)
+    CODE:
+        extern_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+        memory_grow(holder_p, delta_sv);
+
+        RETVAL = SvREFCNT_inc(self_sv);
+
+    OUTPUT:
+        RETVAL
+
+void
+limits (SV* self_sv)
+    PPCODE:
+        if (GIMME_V != G_ARRAY) croak("List context only!");
+
+        extern_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+        wasm_limits_t limits = memory_limits(holder_p);
+
+        EXTEND(SP, 2);
+        mPUSHu(limits.min);
+        mPUSHu(limits.max);
 
 UV
 data_size (SV* self_sv)
