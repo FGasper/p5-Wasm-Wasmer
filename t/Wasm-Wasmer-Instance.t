@@ -112,6 +112,10 @@ sub test_create_instance__imports_misshapen : Tests(5) {
     my $ok_wat  = _WAT_FUNCTYPES;
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
 
+    # Do this at least once in the test suite to ensure that
+    # we treat upgraded byte strings the same as downgraded ones:
+    utf8::upgrade($ok_wasm);
+
     my $module = Wasm::Wasmer::Module->new($ok_wasm);
 
     my $err = dies { $module->create_instance( [123] ) };

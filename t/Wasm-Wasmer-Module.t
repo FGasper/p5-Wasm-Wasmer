@@ -70,7 +70,7 @@ sub test_validate_module : Tests(4) {
     return;
 }
 
-sub test_serialize_deserialize : Tests(1) {
+sub test_serialize_deserialize : Tests(2) {
     my $ok_wat  = _WAT;
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
 
@@ -84,6 +84,17 @@ sub test_serialize_deserialize : Tests(1) {
         $module2,
         ['Wasm::Wasmer::Module'],
         'deserialize() return',
+    );
+
+    my $serialized_up = $serialized;
+    utf8::upgrade($serialized_up);
+
+    $module2 = Wasm::Wasmer::Module::deserialize($serialized_up);
+
+    isa_ok(
+        $module2,
+        ['Wasm::Wasmer::Module'],
+        'deserialize() return (upgraded string)',
     );
 
     return;
