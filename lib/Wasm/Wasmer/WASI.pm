@@ -62,6 +62,37 @@ my %STDOUT_STDERR_OPTS = map { $_ => 1 } ('inherit', 'capture');
 
 #----------------------------------------------------------------------
 
+=head1 METHODS
+
+=head2 $obj = I<CLASS>->new( %OPTS )
+
+Instantiates this class. Give $obj to the appropriate method of
+L<Wasm::Wasmer::Module>.
+
+The %OPTS correspond to L<Wasmer’s corresponding interface|https://docs.rs/wasmer-c-api/2.0.0/wasmer_c_api/wasm_c_api/wasi/index.html>. All are optional:
+
+=over
+
+=item * C<name> - defaults to empty-string
+
+=item * C<args> - arrayref
+
+=item * C<env> - arrayref of key-value pairs
+
+=item * C<stdin> - either undef (default) or C<inherit>
+
+=item * C<stdout> - either C<capture> (default) or C<inherit>
+
+=item * C<stderr> - either C<capture> (default) or C<inherit>
+
+=item * C<preopen_dirs> - arrayref of real paths
+
+=item * C<map_dirs> - hashref of WASI-alias to real-path
+
+=back
+
+=cut
+
 sub new {
     my ($class, %opts) = @_;
 
@@ -123,5 +154,15 @@ sub new {
 
     return $class->_new($name, \%opts);
 }
+
+=head2 $str = I<OBJ>->read_stdout($LENGTH)
+
+Reads and returns up to $LENGTH bytes from the internal STDOUT capture.
+
+Only useful if C<new()>’s C<stdout> was C<capture>.
+
+=head2 $str = I<OBJ>->read_stderr($LENGTH)
+
+Like C<read_stdout()> but for captured STDERR.
 
 1;
