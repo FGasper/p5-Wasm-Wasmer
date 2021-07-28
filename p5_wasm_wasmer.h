@@ -67,6 +67,17 @@ void croak_if_non_null_not_derived (pTHX_ SV *obj, const char* classname) {
     }
 }
 
+#define WW_sv_eq_str(sv, str) (         \
+    (SvCUR(sv) == strlen(str))          \
+    && strEQ(SvPVbyte_nolen(sv), str)   \
+)
+
+#define WW_croak_bad_input_name(sv) \
+    croak("Unrecognized input: %" SVf, sv);
+
+#define WW_croak_bad_input_value(name, sv) \
+    croak("Unrecognized `%s` value: %" SVf, name, sv);
+
 #define _WASMER_HAS_ERROR (wasmer_last_error_length() > 0)
 
 #define _croak_if_wasmer_error(prefix, ...)      \
@@ -141,6 +152,10 @@ static inline U32 grok_u32 (pTHX_ SV* sv) {
 
 // This really ought to be in Perl’s API, or some standard XS toolkit …
 static inline IV grok_iv (pTHX_ SV* sv) {
+    if (!SvOK(sv)) croak("Integer expected, not undef");
+
+    if (SvROK(sv)) croak("Integer expected, not reference (%" SVf ")", sv);
+
     if (SvIOK_notUV(sv)) return SvIV(sv);
 
     UV myuv;
@@ -205,7 +220,16 @@ static inline I32 grok_i32 (pTHX_ SV* sv) {
     return myiv;
 }
 
+#define grok_f_reject_undef(sv) \
+    if (!SvOK(sv)) croak("Integer expected, not undef");
+
+#define grok_f_reject_ref(sv) \
+    if (SvROK(sv)) croak("Integer expected, not reference (%" SVf ")", sv);
+
 static inline double grok_f64 (pTHX_ SV* sv) {
+    grok_f_reject_undef(sv);
+    grok_f_reject_ref(sv);
+
     double mydouble = SvNV(sv);
 
     if (!SvNOK(sv)) {
@@ -238,6 +262,9 @@ static inline double grok_f64 (pTHX_ SV* sv) {
 }
 
 static inline float grok_f32 (pTHX_ SV* sv) {
+    grok_f_reject_undef(sv);
+    grok_f_reject_ref(sv);
+
     float myfloat;
 
     if (SvNOK(sv)) {
@@ -295,11 +322,11 @@ wasm_val_t grok_wasm_val (pTHX_ wasm_externkind_t kind, SV* given) {
             break;
 
         case WASM_F32:
-            ret = (wasm_val_t) WASM_F32_VAL( SvNV( aTHX_ given ) );
+            ret = (wasm_val_t) WASM_F32_VAL( grok_f32( aTHX_ given ) );
             break;
 
         case WASM_F64:
-            ret = (wasm_val_t) WASM_F64_VAL( SvNV( aTHX_ given ) );
+            ret = (wasm_val_t) WASM_F64_VAL( grok_f64( aTHX_ given ) );
             break;
 
         default:

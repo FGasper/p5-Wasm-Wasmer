@@ -7,12 +7,18 @@
 
 #define P5_WASM_WASMER_STORE_CLASS "Wasm::Wasmer::Store"
 
+#define POSSIBLE_GLOBALTYPES_COUNT 8
+
+typedef wasm_globaltype_t* global_ix2globaltype_arr_t[POSSIBLE_GLOBALTYPES_COUNT];
+
 typedef struct {
     wasm_store_t* store;
 
     pid_t pid;
 
     wasm_engine_t* engine;
+
+    wasm_globaltype_t* global_ix2globaltype[8];
 } store_holder_t;
 
 SV* create_store_sv (pTHX_ SV* class_sv, SV** args, unsigned argscount) {
@@ -26,17 +32,38 @@ SV* create_store_sv (pTHX_ SV* class_sv, SV** args, unsigned argscount) {
 
     Newx(store_holder_p, 1, store_holder_t);
 
-    store_holder_p->store = store;
-    store_holder_p->pid = getpid();
-    store_holder_p->engine = engine;
+    *store_holder_p = (store_holder_t) {
+        .store = store,
+        .pid = getpid(),
+        .engine = engine,
+
+        .global_ix2globaltype = {
+            wasm_globaltype_new(wasm_valtype_new(WASM_I32), WASM_CONST),
+            wasm_globaltype_new(wasm_valtype_new(WASM_I32), WASM_VAR),
+            wasm_globaltype_new(wasm_valtype_new(WASM_I64), WASM_CONST),
+            wasm_globaltype_new(wasm_valtype_new(WASM_I64), WASM_VAR),
+            wasm_globaltype_new(wasm_valtype_new(WASM_F32), WASM_CONST),
+            wasm_globaltype_new(wasm_valtype_new(WASM_F32), WASM_VAR),
+            wasm_globaltype_new(wasm_valtype_new(WASM_F64), WASM_CONST),
+            wasm_globaltype_new(wasm_valtype_new(WASM_F64), WASM_VAR),
+        },
+    };
 
     return ptr_to_svrv(aTHX_ store_holder_p, gv_stashpv(class, FALSE));
+}
+
+static inline wasm_globaltype_t* get_store_holder_ix_globaltype (store_holder_t* store_holder_p, int ix) {
+    return store_holder_p->global_ix2globaltype[ix];
 }
 
 void destroy_store_sv (pTHX_ SV* store_sv) {
     store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ store_sv);
 
     warn_destruct_if_needed(store_sv, store_holder_p->pid);
+
+    for (unsigned i=0; i<POSSIBLE_GLOBALTYPES_COUNT; i++) {
+        wasm_globaltype_delete(store_holder_p->global_ix2globaltype[i]);
+    }
 
     wasm_store_delete(store_holder_p->store);
 

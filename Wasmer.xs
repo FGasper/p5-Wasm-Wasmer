@@ -193,26 +193,15 @@ create_i32_const (SV* self_sv, SV* value_sv)
         create_f64_const = 6
         create_f64_mut =   7
     CODE:
-        const wasm_globaltype_t* global_ix2globaltype[] = {
-            wasm_globaltype_new(wasm_valtype_new(WASM_I32), WASM_CONST),
-            wasm_globaltype_new(wasm_valtype_new(WASM_I32), WASM_VAR),
-            wasm_globaltype_new(wasm_valtype_new(WASM_I64), WASM_CONST),
-            wasm_globaltype_new(wasm_valtype_new(WASM_I64), WASM_VAR),
-            wasm_globaltype_new(wasm_valtype_new(WASM_F32), WASM_CONST),
-            wasm_globaltype_new(wasm_valtype_new(WASM_F32), WASM_VAR),
-            wasm_globaltype_new(wasm_valtype_new(WASM_F64), WASM_CONST),
-            wasm_globaltype_new(wasm_valtype_new(WASM_F64), WASM_VAR),
-        };
+        store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
-        const wasm_globaltype_t* gtype = global_ix2globaltype[ix];
+        const wasm_globaltype_t* gtype = get_store_holder_ix_globaltype(store_holder_p, ix);
 
         const wasm_valkind_t kind = wasm_valtype_kind(
             wasm_globaltype_content(gtype)
         );
 
         wasm_val_t val = grok_wasm_val(kind, value_sv);
-
-        store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ self_sv);
 
         wasm_global_t* global = wasm_global_new(
             store_holder_p->store,
@@ -244,17 +233,15 @@ create_memory (SV* self_sv, ...)
         bool saw_initial = false;
 
         for (I32 i=1; i<items; i += 2) {
-            const char* arg = SvPVbyte_nolen(ST(i));
-
-            if (strEQ(arg, "initial")) {
+            if (WW_sv_eq_str(ST(i), "initial")) {
                 limits.min = grok_i32(ST(1 + i));
                 saw_initial = true;
             }
-            else if (strEQ(arg, "maximum")) {
+            else if (WW_sv_eq_str(ST(i), "maximum")) {
                 limits.max = grok_i32(ST(1 + i));
             }
             else {
-                croak("Unrecognized: %" SVf, ST(i));
+                WW_croak_bad_input_name(ST(i));
             }
         }
 

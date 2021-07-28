@@ -480,6 +480,21 @@ sub test_func_export_add : Tests(2) {
     return;
 }
 
+sub test_create_memory__args : Tests(3) {
+    my $store = Wasm::Wasmer::Store->new();
+
+    my $err = dies { $store->create_memory( initial => 3, "foo" ) };
+    like($err, qr<even>i, 'err about uneven args');
+
+    $err = dies { $store->create_memory() };
+    like($err, qr<initial>, 'err about missing `initial`');
+
+    $err = dies { $store->create_memory( initial => 3, foofoo => 2 ) };
+    like($err, qr<foofoo>i, 'err about unrecognized arg');
+
+    return;
+}
+
 sub test_import_memory : Tests(3) {
     my $ok_wat = join(
         "\n",
