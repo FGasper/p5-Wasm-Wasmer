@@ -891,4 +891,37 @@ sub test_memory_export : Tests(11) {
     return;
 }
 
+sub test_table_export : Tests(2) {
+    my $ok_wat = q<
+        (module
+            (table (export "mytable") 2 funcref)
+
+            (func $f1 (result i32) i32.const 42)
+            (func $f2 (result i32) i32.const 13)
+
+            (elem (i32.const 0) $f1 $f2)
+        )
+    >;
+
+    my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
+
+    my $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_instance();
+
+    is(
+        $instance->export_names_ar(),
+        [ 'mytable' ],
+        'table export name',
+    );
+
+    is(
+        $instance->export('mytable'),
+        object {
+            prop blessed => 'Wasm::Wasmer::Table';
+        },
+        'table object',
+    );
+
+    return;
+}
+
 1;

@@ -1,0 +1,12 @@
+#ifndef P5_WASM_WASMER_TABLE
+#define P5_WASM_WASMER_TABLE 1
+
+#include "p5_wasm_wasmer.h"
+#include "wasmer_extern.xsc"
+#include "wasmer_store.xsc"
+
+SV* table_to_sv (pTHX_ SV* creator_sv, wasm_extern_t* export_p) {
+    return extern_to_sv(aTHX_ creator_sv, export_p, TABLE_CLASS);
+}
+
+#endif

@@ -11,6 +11,7 @@ typedef size_t usize;
 #define EXTERN_CLASS "Wasm::Wasmer::Extern"
 #define GLOBAL_CLASS "Wasm::Wasmer::Global"
 #define MEMORY_CLASS "Wasm::Wasmer::Memory"
+#define TABLE_CLASS "Wasm::Wasmer::Table"
 #define FUNCTION_CLASS "Wasm::Wasmer::Function"
 
 #define P5_WASM_WASMER_INSTANCE_CLASS "Wasm::Wasmer::Instance"

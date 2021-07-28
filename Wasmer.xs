@@ -24,6 +24,7 @@
 #include "wasmer_engine.xsc"
 #include "wasmer_store.xsc"
 #include "wasmer_module.xsc"
+#include "wasmer_table.xsc"
 #include "wasmer_instance.xsc"
 #include "wasmer_function.xsc"
 #include "wasmer_memory.xsc"
@@ -113,10 +114,11 @@ static inline export_to_sv_fp get_export_to_sv_fp (wasm_externkind_t kind) {
         (kind == WASM_EXTERN_FUNC) ? function_to_sv :
         (kind == WASM_EXTERN_MEMORY) ? memory_to_sv :
         (kind == WASM_EXTERN_GLOBAL) ? global_to_sv :
+        (kind == WASM_EXTERN_TABLE) ? table_to_sv :
         NULL
     );
 
-    if (!fp) assert(0);
+    if (!fp) croak("No export-to-SV for kind %d", kind);
 
     return fp;
 }
@@ -478,6 +480,7 @@ export (SV* self_sv, SV* search_name)
         switch (kind) {
             case WASM_EXTERN_MEMORY:
             case WASM_EXTERN_GLOBAL:
+            case WASM_EXTERN_TABLE:
             case WASM_EXTERN_FUNC: {
                 export_to_sv_fp export_to_sv = get_export_to_sv_fp(kind);
 
@@ -573,6 +576,12 @@ mutability (SV* self_sv)
 
     OUTPUT:
         RETVAL
+
+# ----------------------------------------------------------------------
+
+MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Table
+
+PROTOTYPES: DISABLE
 
 # ----------------------------------------------------------------------
 

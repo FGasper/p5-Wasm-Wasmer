@@ -3,10 +3,10 @@ package Wasm::Wasmer;
 use strict;
 use warnings;
 
-# TODO: better plan for these
 use Wasm::Wasmer::Function;
 use Wasm::Wasmer::Memory;
 use Wasm::Wasmer::Global;
+use Wasm::Wasmer::Table;
 use Wasm::Wasmer::Store;
 use Wasm::Wasmer::Module;
 use Wasm::Wasmer::Instance;
@@ -68,8 +68,8 @@ via methods on the L<Wasm::Wasmer::Module> object.
 
 Generally speaking, strings that in common usage are human-readable
 (e.g., names of imports & exports) are character strings. Ensure
-that you’re properly character-decoded such strings, or you’ll have
-encoding weirdness.
+that you’ve properly character-decoded such strings, or any non-ASCII
+characters will cause encoding bugs.
 
 (TIP: Always incorporate code points 128-255 into your testing.)
 
@@ -90,6 +90,14 @@ This namespace defines the following:
 
 Converts WASM text format to its binary-format equivalent. $TEXT
 should be (character-decoded) text.
+
+=head1 TODO
+
+=over
+
+=item * Add table support.
+
+=back
 
 =cut
 
