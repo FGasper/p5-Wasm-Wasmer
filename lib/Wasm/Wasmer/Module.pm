@@ -125,12 +125,21 @@ Serializes the in-memory module for later use. (cf. C<deserialize()> below)
 
 =cut
 
+=head2 $store = I<OBJ>->store()
+
+Returns I<OBJ>’s underlying L<Wasm::Wasmer::Store> instance.
+
 =head1 STATIC FUNCTIONS
 
 =head2 $module = deserialize( $SERIALIZED_BIN [, $STORE ] )
 
 Like this class’s C<new()> method but takes a serialized module
 rather than WASM code.
+
+=head2 $yn = validate( $WASM_BIN [, $STORE ] )
+
+Like this class’s C<new()> but just returns a boolean to indicate whether
+$WASM_BIN represents a valid module.
 
 =cut
 

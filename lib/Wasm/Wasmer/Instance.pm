@@ -39,9 +39,10 @@ If I<OBJ> contains no such object then undef is returned.
 
 =head2 $names_ar = I<OBJ>->export_names_ar()
 
-Returns a reference to an array of the names of all of I<OBJ>’s exports.
+Returns a reference to an array of the names (text strings)
+of all of I<OBJ>’s exports.
 
-=head2 @ret = I<OBJ>->call( $FUNCNAME, @INPUTS )
+=head2 @ret = I<OBJ>->call( $FUNCNAME_TXT, @INPUTS )
 
 A convenience around:
 
