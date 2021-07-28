@@ -236,7 +236,7 @@ sub test_func_import_context : Tests(2) {
 }
 
 sub test_func_die : Tests(1) {
-    my $ok_wat  = join(
+    my $ok_wat = join(
         "\n",
         '(module',
         '   (import "my" "croaker" (func $vf))',
@@ -250,7 +250,7 @@ sub test_func_die : Tests(1) {
     my $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_instance(
         {
             my => {
-                croaker   => sub { die "nonono" },
+                croaker => sub { die "nonono" },
             },
         },
     );
@@ -259,7 +259,7 @@ sub test_func_die : Tests(1) {
 
     is(
         $err,
-        match( qr<nonono> ),
+        match(qr<nonono>),
         'expected error',
     );
 
@@ -302,8 +302,8 @@ sub test_func_import : Tests(7) {
     is(
         $err,
         check_set(
-            match(qr<2>),           # expected
-            match(qr<3>),           # received
+            match(qr<2>),    # expected
+            match(qr<3>),    # received
         ),
         'error when callback mismatches expected returns count',
     );
@@ -315,7 +315,7 @@ sub test_func_import : Tests(7) {
     is(
         $err,
         check_set(
-            match(qr<scalar>),      # expected
+            match(qr<scalar>),    # expected
         ),
         'error when list-returning WASM function called in scalar context',
     );
@@ -422,12 +422,12 @@ sub test_export : Tests(1) {
             };
 
             call [ export => 'varglobal' ] => object {
-                prop blessed => 'Wasm::Wasmer::Global';
+                prop blessed    => 'Wasm::Wasmer::Global';
                 call mutability => Wasm::Wasmer::WASM_VAR;
             };
 
             call [ export => 'constglobal' ] => object {
-                prop blessed => 'Wasm::Wasmer::Global';
+                prop blessed    => 'Wasm::Wasmer::Global';
                 call mutability => Wasm::Wasmer::WASM_CONST;
             };
 
@@ -484,13 +484,13 @@ sub test_create_memory__args : Tests(3) {
     my $store = Wasm::Wasmer::Store->new();
 
     my $err = dies { $store->create_memory( initial => 3, "foo" ) };
-    like($err, qr<even>i, 'err about uneven args');
+    like( $err, qr<even>i, 'err about uneven args' );
 
     $err = dies { $store->create_memory() };
-    like($err, qr<initial>, 'err about missing `initial`');
+    like( $err, qr<initial>, 'err about missing `initial`' );
 
     $err = dies { $store->create_memory( initial => 3, foofoo => 2 ) };
-    like($err, qr<foofoo>i, 'err about unrecognized arg');
+    like( $err, qr<foofoo>i, 'err about unrecognized arg' );
 
     return;
 }
@@ -508,8 +508,8 @@ sub test_import_memory : Tests(3) {
 
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
 
-    my $store = Wasm::Wasmer::Store->new();
-    my $module = Wasm::Wasmer::Module->new($ok_wasm, $store);
+    my $store  = Wasm::Wasmer::Store->new();
+    my $module = Wasm::Wasmer::Module->new( $ok_wasm, $store );
 
     my $mem = $store->create_memory( initial => 2 );
 
@@ -556,8 +556,8 @@ sub test_import_globals_types : Tests(1) {
 
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
 
-    my $store = Wasm::Wasmer::Store->new();
-    my $module = Wasm::Wasmer::Module->new($ok_wasm, $store);
+    my $store  = Wasm::Wasmer::Store->new();
+    my $module = Wasm::Wasmer::Module->new( $ok_wasm, $store );
 
     my $instance = $module->create_instance(
         {
@@ -595,8 +595,8 @@ sub test_import_globals_mutability : Tests(6) {
 
     my $ok_wasm = Wasm::Wasmer::wat2wasm($ok_wat);
 
-    my $store = Wasm::Wasmer::Store->new();
-    my $module = Wasm::Wasmer::Module->new($ok_wasm, $store);
+    my $store  = Wasm::Wasmer::Store->new();
+    my $module = Wasm::Wasmer::Module->new( $ok_wasm, $store );
 
     my $const = $store->create_i32_const(5);
     my $var   = $store->create_i32_mut(500);
@@ -747,7 +747,7 @@ sub test_global_export : Tests(8) {
 
     is( $tellvarglobal_f->call(), 123, 'tellvarglobal - initial' );
 
-    my $global = $instance->export('varglobal');
+    my $global      = $instance->export('varglobal');
     my $constglobal = $instance->export('constglobal');
 
     is(
@@ -783,8 +783,8 @@ sub test_memory_export : Tests(11) {
     is(
         $instance->export('pagememory'),
         object {
-            prop blessed   => 'Wasm::Wasmer::Memory';
-            call size => 1;
+            prop blessed => 'Wasm::Wasmer::Memory';
+            call size    => 1;
             call [ get => () ], "Hello World!" . ( "\0" x 65524 );
             call [ get => 0,       12 ] => "Hello World!";
             call [ get => 6,       12 ] => "World!\0\0\0\0\0\0";
@@ -909,7 +909,7 @@ sub test_table_export : Tests(2) {
 
     is(
         $instance->export_names_ar(),
-        [ 'mytable' ],
+        ['mytable'],
         'table export name',
     );
 
@@ -917,6 +917,7 @@ sub test_table_export : Tests(2) {
         $instance->export('mytable'),
         object {
             prop blessed => 'Wasm::Wasmer::Table';
+            call size    => 2;
         },
         'table object',
     );

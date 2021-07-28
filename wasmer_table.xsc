@@ -9,4 +9,11 @@ SV* table_to_sv (pTHX_ SV* creator_sv, wasm_extern_t* export_p) {
     return extern_to_sv(aTHX_ creator_sv, export_p, TABLE_CLASS);
 }
 
+U32 table_size( extern_holder_t* holder_p ) {
+    wasm_extern_t* extern_p = holder_p->extern_p;
+    wasm_table_t* table = wasm_extern_as_table(extern_p);
+
+    return wasm_table_size(table);
+}
+
 #endif

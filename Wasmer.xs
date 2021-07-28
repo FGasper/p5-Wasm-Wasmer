@@ -583,6 +583,15 @@ MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Table
 
 PROTOTYPES: DISABLE
 
+SV*
+size (SV* self_sv)
+    CODE:
+        extern_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
+        RETVAL = newSVuv(table_size(holder_p));
+
+    OUTPUT:
+        RETVAL
+
 # ----------------------------------------------------------------------
 
 MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Memory
