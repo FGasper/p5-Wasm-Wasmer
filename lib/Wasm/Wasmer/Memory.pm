@@ -29,6 +29,12 @@ use parent 'Wasm::Wasmer::Extern';
 
 #----------------------------------------------------------------------
 
+=head1 CONSTANTS
+
+=head2 C<PAGE_SIZE>
+
+The size, in bytes, of each page.
+
 =head1 METHODS
 
 =head2 $bytes = I<OBJ>->get( [ $OFFSET [, $LENGTH ] ] )
@@ -67,10 +73,13 @@ if that grow operation fails. Returns I<OBJ>.
 
 Returns the memory’s lower & upper page-count limits.
 
-=head2 $len = I<OBJ>->data_size()
+=head2 $pages = I<OBJ>->size()
 
-Returns the memory’s length in bytes.
+Returns the memory’s current size in pages.
+(The byte length is C<$pages * Wasm::Wasmer::PAGE_SIZE>.)
 
 =cut
+
+use Wasm::Wasmer;
 
 1;

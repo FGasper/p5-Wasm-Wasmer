@@ -370,8 +370,8 @@ sub test_memory_limits_and_grow_fail : Tests(5) {
     my $mem = $store->create_memory( initial => 22, maximum => 37 );
 
     is(
-        $mem->data_size(),
-        22 * 65536,
+        $mem->size(),
+        22,
         'initial size',
     );
 
@@ -388,8 +388,8 @@ sub test_memory_limits_and_grow_fail : Tests(5) {
     );
 
     is(
-        $mem->data_size(),
-        27 * 65536,
+        $mem->size(),
+        27,
         'grown size',
     );
 
@@ -784,7 +784,7 @@ sub test_memory_export : Tests(11) {
         $instance->export('pagememory'),
         object {
             prop blessed   => 'Wasm::Wasmer::Memory';
-            call data_size => 2**16;
+            call size => 1;
             call [ get => () ], "Hello World!" . ( "\0" x 65524 );
             call [ get => 0,       12 ] => "Hello World!";
             call [ get => 6,       12 ] => "World!\0\0\0\0\0\0";

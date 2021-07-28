@@ -128,6 +128,7 @@ MODULE = Wasm::Wasmer     PACKAGE = Wasm::Wasmer
 BOOT:
     newCONSTSUB(gv_stashpv("Wasm::Wasmer", 0), "WASM_CONST", newSVuv(WASM_CONST));
     newCONSTSUB(gv_stashpv("Wasm::Wasmer", 0), "WASM_VAR", newSVuv(WASM_VAR));
+    newCONSTSUB(gv_stashpv("Wasm::Wasmer::Memory", 0), "PAGE_SIZE", newSVuv(MEMORY_PAGE_SIZE));
 
 SV*
 wat2wasm ( SV* wat_sv )
@@ -631,9 +632,9 @@ limits (SV* self_sv)
         mPUSHu(limits.max);
 
 UV
-data_size (SV* self_sv)
+size (SV* self_sv)
     CODE:
-        RETVAL = memory_sv_data_size(aTHX_ self_sv);
+        RETVAL = memory_sv_size(aTHX_ self_sv);
 
     OUTPUT:
         RETVAL

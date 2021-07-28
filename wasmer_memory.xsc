@@ -145,10 +145,10 @@ SV* new_memory_import_sv(pTHX_ SV* store_sv, wasm_limits_t* limits_p) {
     );
 }
 
-static inline usize memory_sv_data_size (pTHX_ SV* self_sv) {
+static inline usize memory_sv_size (pTHX_ SV* self_sv) {
     extern_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
 
-    return wasm_memory_data_size( wasm_extern_as_memory(holder_p->extern_p) );
+    return wasm_memory_size( wasm_extern_as_memory(holder_p->extern_p) );
 }
 
 static inline void destroy_memory_sv (pTHX_ SV* self_sv) {
