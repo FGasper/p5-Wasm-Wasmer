@@ -70,7 +70,7 @@ wasm_func_t* function_from_coderef (pTHX_ wasm_store_t* store, CV* coderef, cons
     if (!host_func) {
         wasm_functype_delete(host_func_type);
 
-        _croak_if_wasmer_error("Failed to create WASM function from CODE reference");
+        _croak_wasmer_error("Failed to create WASM function from CODE reference");
     }
 
     SvREFCNT_inc( (SV*) coderef );

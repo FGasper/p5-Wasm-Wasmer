@@ -55,6 +55,18 @@ static inline SV* global_holder_get_sv (pTHX_ extern_holder_t* holder_p) {
     return ww_val2sv(aTHX_ &val);
 }
 
+static const char* mutability_descr[] = {
+    [WASM_CONST] = "constant",
+    [WASM_VAR] = "mutable",
+};
+
+static const char* kind_descr[] = {
+    [WASM_I32] = "i32",
+    [WASM_I64] = "i64",
+    [WASM_F32] = "f32",
+    [WASM_F64] = "f64",
+};
+
 static inline void global_holder_set_sv (pTHX_ extern_holder_t* holder_p, SV* newval) {
     wasm_global_t* global = wasm_extern_as_global(holder_p->extern_p);
 
@@ -64,24 +76,12 @@ static inline void global_holder_set_sv (pTHX_ extern_holder_t* holder_p, SV* ne
         const wasm_globaltype_t* gtype = wasm_global_type(global);
         const wasm_valtype_t* vtype = wasm_globaltype_content(gtype);
 
-        const char* mutability_descr[2];
-        mutability_descr[WASM_CONST] = "constant";
-        mutability_descr[WASM_VAR] = "mutable";
-
-        const char* kind_descr[4];
-        kind_descr[WASM_I32] = "i32";
-        kind_descr[WASM_I64] = "i64";
-        kind_descr[WASM_F32] = "f32";
-        kind_descr[WASM_F64] = "f64";
-
-        _croak_if_wasmer_error(
+        _croak_wasmer_error(
             "Failed to set %s %s global to %" SVf,
             mutability_descr[ wasm_globaltype_mutability(gtype) ],
             kind_descr[ wasm_valtype_kind(vtype) ],
             newval
         );
-
-        assert(0);
     }
 }
 

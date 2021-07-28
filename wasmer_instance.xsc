@@ -285,9 +285,7 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
 
     if (!instance) {
         _croak_if_trap(aTHX_ trap);
-        _croak_if_wasmer_error("Failed to instantiate WASM module");
-
-        assert(0 && "wasm_instance_new() failed without error?!?");
+        _croak_wasmer_error("Failed to instantiate WASM module");
     }
 
     return instance_to_sv(instance, module_sv, heap_imports, class);

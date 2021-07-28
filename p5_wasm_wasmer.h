@@ -76,8 +76,12 @@ void croak_if_non_null_not_derived (pTHX_ SV *obj, const char* classname) {
         wasmer_last_error_message(msg, wasmer_errlen);  \
                                                         \
         croak(prefix ": %.*s", ##__VA_ARGS__, wasmer_errlen, msg); \
-    }                                                   \
+    }
 
+#define _croak_wasmer_error(prefix, ...) STMT_START {       \
+    _croak_if_wasmer_error(prefix, ##__VA_ARGS__);          \
+    croak(prefix " (no Wasmer error?!?)", ##__VA_ARGS__);   \
+} STMT_END
 
 void _croak_if_trap (pTHX_ wasm_trap_t* trap) {
     if (trap != NULL) {

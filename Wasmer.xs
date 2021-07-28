@@ -154,9 +154,7 @@ wat2wasm ( SV* wat_sv )
         else {
             wasm_byte_vec_delete(&wasmvec);
 
-            _croak_if_wasmer_error("Failed to convert WAT to WASM");
-
-            croak("wat2wasm failed but left no message!");
+            _croak_wasmer_error("Failed to convert WAT to WASM");
         }
 
     OUTPUT:
@@ -222,8 +220,7 @@ create_i32_const (SV* self_sv, SV* value_sv)
             &val
         );
         if (!global) {
-            _croak_if_wasmer_error("Failed to create global");
-            assert(0 /* Failed to create global */);
+            _croak_wasmer_error("Failed to create global");
         }
 
         RETVAL = global_to_sv( aTHX_
@@ -424,8 +421,7 @@ create_wasi_instance (SV* self_sv, SV* wasi_sv=NULL, SV* imports_sv=NULL)
         );
 
         if (!get_imports_result) {
-            print_wasmer_error();
-            croak("> Error getting WASI imports!\n");
+            _croak_wasmer_error("Error getting WASI imports");
         }
 
         SV* instance_sv = create_instance_sv(aTHX_ NULL, self_sv, imports_sv, &host_imports);
@@ -770,7 +766,7 @@ _new (SV* classname_sv, SV* wasiname_sv, SV* opts_hr=NULL)
                     bool ok = wasi_config_preopen_dir(config, SvPVutf8_nolen(dir));
                     if (!ok) {
                         _wasi_config_delete(config);
-                        _croak_if_wasmer_error("Failed to preopen directory %" SVf, dir);
+                        _croak_wasmer_error("Failed to preopen directory %" SVf, dir);
                     }
                 }
             }
@@ -793,7 +789,7 @@ _new (SV* classname_sv, SV* wasiname_sv, SV* opts_hr=NULL)
 
                     if (!ok) {
                         _wasi_config_delete(config);
-                        _croak_if_wasmer_error("Failed to map alias %s to directory %s", keystr, valuestr);
+                        _croak_wasmer_error("Failed to map alias %s to directory %s", keystr, valuestr);
                     }
                 }
             }

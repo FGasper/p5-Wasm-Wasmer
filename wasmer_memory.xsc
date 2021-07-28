@@ -63,10 +63,7 @@ static inline void memory_grow (pTHX_ extern_holder_t* holder_p, SV* delta_sv) {
     if (!ok) {
         wasm_limits_t limits = memory_limits(aTHX_ holder_p);
 
-        // Wasmer doesn’t actually populate this for now, it seems …
-        _croak_if_wasmer_error("Failed to grow memory by %u (min=%u, max=%u)", delta, limits.min, limits.max);
-
-        croak("Failed to grow memory by %u (min=%u, max=%u)", delta, limits.min, limits.max);
+        _croak_wasmer_error("Failed to grow memory by %u (min=%u, max=%u)", delta, limits.min, limits.max);
     }
 }
 
@@ -135,13 +132,11 @@ SV* new_memory_import_sv(pTHX_ SV* store_sv, wasm_limits_t* limits_p) {
     //fprintf(stderr, "min: %u; max: %u\n", limits_p->min, limits_p->max);
 
     if (!memory) {
-        _croak_if_wasmer_error(
+        _croak_wasmer_error(
             "Failed to create a memory (initial=%u, maximum=%u)",
             limits_p->min,
             limits_p->max
         );
-
-        assert(0 /* Failed to create memory, but no Wasmer error?!? */);
     }
 
     return memory_to_sv(aTHX_
