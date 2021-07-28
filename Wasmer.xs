@@ -18,7 +18,7 @@
 #   define WASM_WASMER_MUST_STORE_PERL 0
 #endif
 
-#define _DEBUG 1
+#define _DEBUG 0
 
 #include "p5_wasm_wasmer.h"
 #include "wasmer_engine.xsc"
