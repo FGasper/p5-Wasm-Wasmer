@@ -592,6 +592,44 @@ size (SV* self_sv)
     OUTPUT:
         RETVAL
 
+#if 0
+SV*
+grow (SV* self_sv, SV* delta_sv, SV* init_sv=NULL)
+    CODE:
+        U32 delta = grok_u32(delta_sv);
+
+        extern_holder_t* init_extern_p;
+
+        if (init_sv && SvOK(init_sv)) {
+            if (!sv_derived_from(init_sv, FUNCTION_CLASS)) {
+                croak("Give a %s instance, not %" SVf, FUNCTION_CLASS, init_sv);
+            }
+
+            init_extern_p = svrv_to_ptr(aTHX_ init_sv);
+        }
+        else {
+            init_extern_p = NULL;
+        }
+
+        extern_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+        table_grow(aTHX_ holder_p, delta, init_extern_p);
+
+        RETVAL = SvREFCNT_inc(self_sv);
+    OUTPUT:
+        RETVAL
+
+SV*
+get (SV* self_sv, SV* index_sv)
+    CODE:
+        U32 index = grok_u32(index_sv);
+
+        RETVAL = table_get_sv(aTHX_ self_sv, index);
+
+    OUTPUT:
+        RETVAL
+#endif
+
 # ----------------------------------------------------------------------
 
 MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::Memory

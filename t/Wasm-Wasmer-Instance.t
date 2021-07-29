@@ -894,12 +894,16 @@ sub test_memory_export : Tests(11) {
 sub test_table_export : Tests(2) {
     my $ok_wat = q<
         (module
-            (table (export "mytable") 2 funcref)
+            (table (export "mytable") 2 4 funcref)
 
-            (func $f1 (result i32) i32.const 42)
-            (func $f2 (result i32) i32.const 13)
+            (func (export "give42") (result i32) i32.const 42)
 
-            (elem (i32.const 0) $f1 $f2)
+            (type $return_i32 (func (result i32)))
+
+            (func (export "callByIndex") (param $i i32) (result i32)
+                local.get $i
+                call_indirect (type $return_i32)
+            )
         )
     >;
 
@@ -909,12 +913,20 @@ sub test_table_export : Tests(2) {
 
     is(
         $instance->export_names_ar(),
-        ['mytable'],
+        bag {
+            item 'mytable';
+            item 'give42';
+            item 'callByIndex';
+            end();
+        },
         'table export name',
+        explain $instance->export_names_ar(),
     );
 
+    my $table_obj = $instance->export('mytable');
+
     is(
-        $instance->export('mytable'),
+        $table_obj,
         object {
             prop blessed => 'Wasm::Wasmer::Table';
             call size    => 2;

@@ -3,6 +3,8 @@
 
 #include <assert.h>
 
+wasm_func_t* function_from_coderef (pTHX_ wasm_store_t* store, CV* coderef, const wasm_externtype_t* externtype, const wasm_name_t* modname, const wasm_name_t* funcname);
+
 #include "p5_wasm_wasmer.h"
 #include "wasmer_extern.xsc"
 #include "wasmer_callback.xsc"
