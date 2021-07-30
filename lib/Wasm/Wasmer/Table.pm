@@ -21,7 +21,8 @@ This class represents external WebAssembly tables. It subclasses
 L<Wasm::Wasmer::Extern>.
 
 It’s limited by Wasmer’s own external table support, which currently
-allows only trivial interactions.
+allows only trivial interactions. Once Wasmer’s table support improves,
+this library can as well.
 
 =cut
 
