@@ -147,6 +147,38 @@ static inline wasm_valtype_vec_t _valtypes_ar_to_vec( pTHX_ AV* input_av ) {
     return vec;
 }
 
+static inline void _validate_valtype_svav( pTHX_ SV* value, SV* key ) {
+    if (!SvRV(value) || (SVt_PVAV != SvTYPE(SvRV(value)))) {
+        croak("`%s` should be a coderef, not “%" SVf "”", SvPVbyte_nolen(key), value);
+    }
+
+    AV* av = (AV*) SvRV(value);
+
+    int len = 1 + av_top_index(av);
+
+    int i;
+
+    for (i=0; i<len; i++) {
+        SV** curval = av_fetch(av, i, false);
+        if (!curval || !*curval || !SvOK(*curval)) {
+            croak("%s: missing value #%d", SvPVbyte_nolen(key), 1 + i);
+        }
+
+        U32 val = grok_u32(aTHX_ *curval);
+
+        switch (val) {
+            case WASM_I32:
+            case WASM_I64:
+            case WASM_F32:
+            case WASM_F64:
+                break;
+
+            default:
+                croak("%s: unrecognized value (%" SVf ")", SvPVbyte_nolen(key), *curval);
+        }
+    }
+}
+
 /* ---------------------------------------------------------------------- */
 
 MODULE = Wasm::Wasmer     PACKAGE = Wasm::Wasmer
@@ -230,16 +262,21 @@ create_function (SV* self_sv, ...)
         for (I32 i=1; i<items; i += 2) {
             SV* value = ST(1 + i);
 
+            if (!SvOK(value)) continue;
+
             if (WW_sv_eq_str(ST(i), "code")) {
-                // TODO: validate
+                if (!SvRV(value) || (SVt_PVCV != SvTYPE(SvRV(value)))) {
+                    croak("`code` should be a coderef, not “%" SVf "”", value);
+                }
+
                 code_svcv = value;
             }
             else if (WW_sv_eq_str(ST(i), "params")) {
-                // TODO: validate
+                _validate_valtype_svav(value, ST(i));
                 params_av = (AV*) SvRV(value);
             }
             else if (WW_sv_eq_str(ST(i), "results")) {
-                // TODO: validate
+                _validate_valtype_svav(value, ST(i));
                 results_av = (AV*) SvRV(value);
             }
             else {
