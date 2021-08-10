@@ -3,7 +3,7 @@
 
 #include <assert.h>
 
-wasm_func_t* function_from_coderef (pTHX_ wasm_store_t* store, CV* coderef, const wasm_externtype_t* externtype, const wasm_name_t* modname, const wasm_name_t* funcname);
+wasm_func_t* function_from_coderef (pTHX_ wasm_store_t* store, CV* coderef, const wasm_functype_t* functype, const wasm_name_t* modname, const wasm_name_t* funcname);
 
 #include "p5_wasm_wasmer.h"
 #include "wasmer_extern.xsc"
@@ -11,8 +11,16 @@ wasm_func_t* function_from_coderef (pTHX_ wasm_store_t* store, CV* coderef, cons
 #include "wasmer_instance.xsc"
 #include "wasmer_wasi.xsc"
 
+SV* _function_to_sv (pTHX_ SV* creator_sv, wasm_extern_t* export_p, const char* classname) {
+    return extern_to_sv(aTHX_ creator_sv, export_p, classname);
+}
+
 SV* function_to_sv (pTHX_ SV* creator_sv, wasm_extern_t* export_p) {
-    return extern_to_sv(aTHX_ creator_sv, export_p, FUNCTION_CLASS);
+    return _function_to_sv(aTHX_ creator_sv, export_p, FUNCTION_CLASS);
+}
+
+SV* function_to_import_sv (pTHX_ SV* creator_sv, wasm_extern_t* export_p) {
+    return _function_to_sv(aTHX_ creator_sv, export_p, "Wasm::Wasmer::Function::Import");
 }
 
 static inline void function_start_wasi_if_needed (pTHX_ extern_holder_t* holder_p) {
@@ -25,52 +33,34 @@ static inline void function_start_wasi_if_needed (pTHX_ extern_holder_t* holder_
     }
 }
 
-#define xsh_new_heap_struct(var, type, literal) STMT_START { \
-    type* var;              \
-    Newx(var, 1, type);     \
-                            \
-    *var = (type) literal;  \
-} STMT_END
-
-wasm_func_t* function_from_coderef (pTHX_ wasm_store_t* store, CV* coderef, const wasm_externtype_t* externtype, const wasm_name_t* modname, const wasm_name_t* funcname) {
-    const wasm_functype_t* functype = wasm_externtype_as_functype_const(externtype);
-    const wasm_valtype_vec_t* params = wasm_functype_params(functype);
-    const wasm_valtype_vec_t* results = wasm_functype_results(functype);
-
+wasm_func_t* function_from_coderef (pTHX_ wasm_store_t* store, CV* coderef, const wasm_functype_t* functype, const wasm_name_t* modname, const wasm_name_t* funcname) {
     callback_holder_t* callback_holder_p;
     Newx(callback_holder_p, 1, callback_holder_t);
 
     *callback_holder_p = (callback_holder_t) {
         .store = store,
         .coderef = coderef,
-        .modname = *modname,
-        .funcname = *funcname,
+
+        .modname = modname,
+        .funcname = funcname,
+
+        .functype = functype,
 
 #if WASM_WASMER_MUST_STORE_PERL
         .aTHX = aTHX,
 #endif
     };
 
-    wasm_valtype_vec_copy(
-        &callback_holder_p->results,
-        results
-    );
-
-    own wasm_functype_t* host_func_type = wasm_functype_new(
-        (wasm_valtype_vec_t *) params,
-        (wasm_valtype_vec_t *) results
-    );
-
     own wasm_func_t* host_func = wasm_func_new_with_env(
         store,
-        host_func_type,
+        functype,
         host_func_callback,
         callback_holder_p,
         free_callback_holder
     );
 
     if (!host_func) {
-        wasm_functype_delete(host_func_type);
+        Safefree(callback_holder_p);
 
         _croak_wasmer_error("Failed to create WASM function from CODE reference");
     }

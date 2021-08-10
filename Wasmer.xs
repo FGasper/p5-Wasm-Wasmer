@@ -123,11 +123,40 @@ static inline export_to_sv_fp get_export_to_sv_fp (wasm_externkind_t kind) {
     return fp;
 }
 
+static inline wasm_valtype_vec_t _valtypes_ar_to_vec( pTHX_ AV* input_av ) {
+    wasm_valtype_vec_t vec;
+
+    if (input_av) {
+        int len = 1 + av_top_index(input_av);
+
+        wasm_valtype_t* types[len];
+
+        int idx = 0;
+        while (idx < len) {
+            SV** cur_svp = av_fetch(input_av, idx, 0);
+            types[idx] = wasm_valtype_new(SvUV(*cur_svp));
+            idx++;
+        }
+
+        wasm_valtype_vec_new( &vec, len, types );
+    }
+    else {
+        wasm_valtype_vec_new_empty(&vec);
+    }
+
+    return vec;
+}
+
 /* ---------------------------------------------------------------------- */
 
 MODULE = Wasm::Wasmer     PACKAGE = Wasm::Wasmer
 
 BOOT:
+    newCONSTSUB(gv_stashpv("Wasm::Wasmer", 0), "WASM_I32", newSVuv(WASM_I32));
+    newCONSTSUB(gv_stashpv("Wasm::Wasmer", 0), "WASM_I64", newSVuv(WASM_I64));
+    newCONSTSUB(gv_stashpv("Wasm::Wasmer", 0), "WASM_F32", newSVuv(WASM_F32));
+    newCONSTSUB(gv_stashpv("Wasm::Wasmer", 0), "WASM_F64", newSVuv(WASM_F64));
+
     newCONSTSUB(gv_stashpv("Wasm::Wasmer", 0), "WASM_CONST", newSVuv(WASM_CONST));
     newCONSTSUB(gv_stashpv("Wasm::Wasmer", 0), "WASM_VAR", newSVuv(WASM_VAR));
     newCONSTSUB(gv_stashpv("Wasm::Wasmer::Memory", 0), "PAGE_SIZE", newSVuv(MEMORY_PAGE_SIZE));
@@ -181,6 +210,59 @@ new (SV* class_sv, ...)
         }
 
         RETVAL = create_store_sv(aTHX_ class_sv, &ST(1), argscount);
+
+    OUTPUT:
+        RETVAL
+
+SV*
+create_function (SV* self_sv, ...)
+    CODE:
+        store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+        SV* code_svcv = NULL;
+        AV* params_av = NULL;
+        AV* results_av = NULL;
+
+        if (!(items % 2)) {
+            croak("Uneven number of parameters (%d) given", items - 1);
+        }
+
+        for (I32 i=1; i<items; i += 2) {
+            SV* value = ST(1 + i);
+
+            if (WW_sv_eq_str(ST(i), "code")) {
+                // TODO: validate
+                code_svcv = value;
+            }
+            else if (WW_sv_eq_str(ST(i), "params")) {
+                // TODO: validate
+                params_av = (AV*) SvRV(value);
+            }
+            else if (WW_sv_eq_str(ST(i), "results")) {
+                // TODO: validate
+                results_av = (AV*) SvRV(value);
+            }
+            else {
+                WW_croak_bad_input_name(ST(i));
+            }
+        }
+
+        if (!code_svcv) croak("Need `code`");
+
+        wasm_valtype_vec_t params = _valtypes_ar_to_vec(aTHX_ params_av);
+        wasm_valtype_vec_t results = _valtypes_ar_to_vec(aTHX_ results_av);
+
+        wasm_functype_t* functype = wasm_functype_new(&params, &results);
+        assert(functype);
+
+        wasm_func_t* func = function_from_coderef(
+            store_holder_p->store,
+            (CV*) code_svcv,
+            functype,
+            NULL, NULL
+        );
+
+        RETVAL = function_to_import_sv(aTHX_ self_sv, wasm_func_as_extern(func));
 
     OUTPUT:
         RETVAL
@@ -628,6 +710,7 @@ get (SV* self_sv, SV* index_sv)
 
     OUTPUT:
         RETVAL
+
 #endif
 
 # ----------------------------------------------------------------------
