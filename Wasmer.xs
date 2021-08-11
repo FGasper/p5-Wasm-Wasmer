@@ -594,29 +594,34 @@ export (SV* self_sv, SV* search_name)
             &export_type_p
         );
 
-        wasm_externkind_t kind = wasm_extern_kind(extern_p);
+        if (extern_p) {
+            wasm_externkind_t kind = wasm_extern_kind(extern_p);
 
-        switch (kind) {
-            case WASM_EXTERN_MEMORY:
-            case WASM_EXTERN_GLOBAL:
-            case WASM_EXTERN_TABLE:
-            case WASM_EXTERN_FUNC: {
-                export_to_sv_fp export_to_sv = get_export_to_sv_fp(kind);
+            switch (kind) {
+                case WASM_EXTERN_MEMORY:
+                case WASM_EXTERN_GLOBAL:
+                case WASM_EXTERN_TABLE:
+                case WASM_EXTERN_FUNC: {
+                    export_to_sv_fp export_to_sv = get_export_to_sv_fp(kind);
 
-                RETVAL = export_to_sv( aTHX_ self_sv, extern_p );
-            } break;
+                    RETVAL = export_to_sv( aTHX_ self_sv, extern_p );
+                } break;
 
-            default: {
-                const wasm_name_t* name = wasm_exporttype_name(export_type_p);
+                default: {
+                    const wasm_name_t* name = wasm_exporttype_name(export_type_p);
 
-                const char* typename = get_externkind_description(wasm_extern_kind(extern_p));
-                croak(
-                    "%" SVf " doesn’t support export “%.*s”’s type (%s).",
-                    self_sv,
-                    (int) name->size, name->data,
-                    typename
-                );
+                    const char* typename = get_externkind_description(wasm_extern_kind(extern_p));
+                    croak(
+                        "%" SVf " doesn’t support export “%.*s”’s type (%s).",
+                        self_sv,
+                        (int) name->size, name->data,
+                        typename
+                    );
+                }
             }
+        }
+        else {
+            RETVAL = &PL_sv_undef;
         }
 
     OUTPUT:

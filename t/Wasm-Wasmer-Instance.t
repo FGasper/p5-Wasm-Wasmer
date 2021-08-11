@@ -417,6 +417,8 @@ sub test_export : Tests(1) {
     is(
         $instance,
         object {
+            call [ export => 'qeqeqeqq' ] => undef;
+
             call [ export => 'add' ] => object {
                 prop blessed => 'Wasm::Wasmer::Function';
             };
