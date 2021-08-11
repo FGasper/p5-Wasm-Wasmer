@@ -7,7 +7,7 @@ use warnings;
 
 =head1 NAME
 
-Wasm::Wasmer::Table
+Wasm::Wasmer::Table - WebAssembly table
 
 =head1 SYNOPSIS
 

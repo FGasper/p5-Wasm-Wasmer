@@ -7,7 +7,7 @@ use warnings;
 
 =head1 NAME
 
-Wasm::Wasmer::Memory
+Wasm::Wasmer::Memory - WebAssembly memory
 
 =head1 SYNOPSIS
 

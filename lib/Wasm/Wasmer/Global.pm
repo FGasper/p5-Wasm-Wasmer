@@ -7,7 +7,7 @@ use warnings;
 
 =head1 NAME
 
-Wasm::Wasmer::Global
+Wasm::Wasmer::Global - WebAssembly global
 
 =head1 SYNOPSIS
 

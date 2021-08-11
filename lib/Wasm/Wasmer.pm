@@ -4,7 +4,6 @@ use strict;
 use warnings;
 
 use Wasm::Wasmer::Function;
-use Wasm::Wasmer::Function::Import;
 use Wasm::Wasmer::Memory;
 use Wasm::Wasmer::Global;
 use Wasm::Wasmer::Table;

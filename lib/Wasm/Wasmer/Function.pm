@@ -9,7 +9,7 @@ use parent 'Wasm::Wasmer::Extern';
 
 =head1 NAME
 
-Wasm::Wasmer::Function - Exported WebAssembly function
+Wasm::Wasmer::Function - WebAssembly function
 
 =head1 SYNOPSIS
 
@@ -21,8 +21,8 @@ Wasm::Wasmer::Function - Exported WebAssembly function
 
 =head1 DESCRIPTION
 
-This class represents an exported WebAssembly function. It is not
-instantiated directly.
+This class represents a WebAssembly function: either an exported one or
+a Perl callback to give to WebAssembly. It is not instantiated directly.
 
 This class subclasses L<Wasm::Wasmer::Extern>.
 

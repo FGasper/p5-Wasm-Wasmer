@@ -18,7 +18,7 @@ use Wasm::Wasmer::Store;
 
 __PACKAGE__->new()->runtests() if !caller;
 
-sub test_anonymous_function : Tests(5) {
+sub test_anonymous_function : Tests(6) {
     my $store = Wasm::Wasmer::Store->new();
 
     my $ran = 3;
@@ -29,13 +29,9 @@ sub test_anonymous_function : Tests(5) {
 
     my $err = dies { $func_0_0->call() };
 
-    is(
-        $err,
-        check_set(
-            match( qr<Wasmer> ),
-        ),
-        'expected error from call()',
-    );
+    is( $err, undef, 'no error from call()' );
+
+    is( $ran, 4, '… and it ran the Perl function' );
 
     #----------------------------------------------------------------------
 
@@ -83,13 +79,13 @@ sub test_anonymous_function : Tests(5) {
 
     is(
         $instance1->export('callfunc')->call(),
-        4,
+        5,
         'call() from first instance',
     );
 
     is(
         $instance2->export('callfunc')->call(),
-        5,
+        6,
         'call() from second instance',
     );
 

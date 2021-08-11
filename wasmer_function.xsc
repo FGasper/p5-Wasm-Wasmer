@@ -11,16 +11,8 @@ wasm_func_t* function_from_coderef (pTHX_ wasm_store_t* store, CV* coderef, cons
 #include "wasmer_instance.xsc"
 #include "wasmer_wasi.xsc"
 
-SV* _function_to_sv (pTHX_ SV* creator_sv, wasm_extern_t* export_p, const char* classname) {
-    return extern_to_sv(aTHX_ creator_sv, export_p, classname);
-}
-
 SV* function_to_sv (pTHX_ SV* creator_sv, wasm_extern_t* export_p) {
-    return _function_to_sv(aTHX_ creator_sv, export_p, FUNCTION_CLASS);
-}
-
-SV* function_to_import_sv (pTHX_ SV* creator_sv, wasm_extern_t* export_p) {
-    return _function_to_sv(aTHX_ creator_sv, export_p, "Wasm::Wasmer::Function::Import");
+    return extern_to_sv(aTHX_ creator_sv, export_p, FUNCTION_CLASS);
 }
 
 static inline void function_start_wasi_if_needed (pTHX_ extern_holder_t* holder_p) {

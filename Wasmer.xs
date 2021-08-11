@@ -299,7 +299,7 @@ create_function (SV* self_sv, ...)
             NULL, NULL
         );
 
-        RETVAL = function_to_import_sv(aTHX_ self_sv, wasm_func_as_extern(func));
+        RETVAL = function_to_sv(aTHX_ self_sv, wasm_func_as_extern(func));
 
     OUTPUT:
         RETVAL
