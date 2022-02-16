@@ -71,6 +71,14 @@ wasm_trap_t* host_func_callback( void* env, const wasm_val_vec_t* args, wasm_val
 
     SPAGAIN;
 
+    // In Perl 5.22+ got_count is always 0 if G_VOID. Before then,
+    // if you return 1 thing, you got 1 thing, even in G_VOID; let’s
+    // treat that a bug to work around by never checking the G_VOID case:
+    if (callflags & G_VOID) {
+        while (got_count--) (void) POPs;
+        got_count = 0;
+    }
+
     wasm_trap_t* trap = NULL;
 
     SV* err = ERRSV;
@@ -86,12 +94,7 @@ wasm_trap_t* host_func_callback( void* env, const wasm_val_vec_t* args, wasm_val
             &vector
         );
     }
-
-    // In Perl 5.22+ got_count is always 0 if G_VOID. Before then,
-    // if you return 1 thing, you got 1 thing, even in G_VOID; let’s
-    // treat that a bug to work around by never checking the G_VOID case:
-    //
-    else if ((results->size == 0) || (got_count == results->size)) {
+    else if (got_count == results->size) {
         const wasm_valtype_vec_t* expected = wasm_functype_results(callback_holder_p->functype);
 
         for (I32 g=got_count-1; g >= 0; g--) {
