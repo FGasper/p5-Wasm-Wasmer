@@ -22,7 +22,7 @@ XSLoader::load();
 =head1 NAME
 
 Wasm::Wasmer - L<WebAssembly|https://webassembly.org/> in Perl via
-L<http://wasmer.io/Wasmer|Wasmer>
+L<Wasmer|http://wasmer.io/Wasmer>
 
 =head1 SYNOPSIS
 

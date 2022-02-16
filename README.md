@@ -1,7 +1,7 @@
 # NAME
 
 Wasm::Wasmer - [WebAssembly](https://webassembly.org/) in Perl via
-[http://wasmer.io/Wasmer|Wasmer](http://wasmer.io/Wasmer|Wasmer)
+[Wasmer](http://wasmer.io/Wasmer)
 
 # SYNOPSIS
 
