@@ -9,7 +9,9 @@ use Test2::V0 -no_utf8 => 1;
 use Test2::Tools::Explain;
 use Test2::Plugin::NoWarnings;
 
-use parent 'Test::Class';
+use FindBin;
+use lib "$FindBin::Bin/lib";
+use parent 'TestBase';
 
 use Wasm::Wasmer;
 use Wasm::Wasmer::Module;

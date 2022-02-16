@@ -9,7 +9,9 @@ use Test2::V0 -no_utf8 => 1;
 use Test2::Tools::Explain;
 use Test2::Plugin::NoWarnings;
 
-use parent 'Test::Class';
+use FindBin;
+use lib "$FindBin::Bin/lib";
+use parent 'TestBase';
 
 use Wasm::Wasmer;
 use Wasm::Wasmer::Module;
@@ -72,6 +74,8 @@ sub test_create : Tests(2) {
 }
 
 sub test_filesys_nonutf8 : Tests(3) {
+    my $todo = todo('Wasmer seems to have stopped caring here.');
+
     my $baddir = "/../../foo/\xff\xff\xff";
 
     my $baddir_utf8 = $baddir;
