@@ -32,16 +32,14 @@ This provides a simple, fast way to run WebAssembly (WASM) in Perl.
 We mostly follow the relationships from
 [Wasmer’s C API](https://docs.rs/wasmer-c-api):
 
-## \* [Wasm::Wasmer::Store](https://metacpan.org/pod/Wasm%3A%3AWasmer%3A%3AStore) manages Wasmer’s global state, including
+- [Wasm::Wasmer::Store](https://metacpan.org/pod/Wasm%3A%3AWasmer%3A%3AStore) manages Wasmer’s global state, including
 storage of any imports & exports. It contains compiler & engine
 configuration as well. This object can be auto-created by default
 or manually instantiated.
-
-## \* [Wasm::Wasmer::Module](https://metacpan.org/pod/Wasm%3A%3AWasmer%3A%3AModule) uses a [Wasm::Wasmer::Store](https://metacpan.org/pod/Wasm%3A%3AWasmer%3A%3AStore) instance
+- [Wasm::Wasmer::Module](https://metacpan.org/pod/Wasm%3A%3AWasmer%3A%3AModule) uses a [Wasm::Wasmer::Store](https://metacpan.org/pod/Wasm%3A%3AWasmer%3A%3AStore) instance
 to represent a parsed WASM module. This one you always instantiate
 manually.
-
-## \* [Wasm::Wasmer::Instance](https://metacpan.org/pod/Wasm%3A%3AWasmer%3A%3AInstance) uses a [Wasm::Wasmer::Module](https://metacpan.org/pod/Wasm%3A%3AWasmer%3A%3AModule) instance
+- [Wasm::Wasmer::Instance](https://metacpan.org/pod/Wasm%3A%3AWasmer%3A%3AInstance) uses a [Wasm::Wasmer::Module](https://metacpan.org/pod/Wasm%3A%3AWasmer%3A%3AModule) instance
 to represent an in-progress WASM program. You’ll instantiate these
 via methods on the [Wasm::Wasmer::Module](https://metacpan.org/pod/Wasm%3A%3AWasmer%3A%3AModule) object.
 
