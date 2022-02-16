@@ -656,9 +656,7 @@ call (SV* self_sv, SV* funcname_sv, ...)
 void
 DESTROY (SV* self_sv)
     CODE:
-        fprintf(stderr, "before destroy instance\n");
         destroy_instance_sv(aTHX_ self_sv);
-        fprintf(stderr, "after destroy instance\n");
 
 # ----------------------------------------------------------------------
 
