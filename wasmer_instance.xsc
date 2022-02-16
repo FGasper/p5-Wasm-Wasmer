@@ -47,7 +47,7 @@ static wasm_extern_t* _get_instance_export(pTHX_ instance_holder_t* instance_hol
 
 static wasm_func_t* _get_instance_function(pTHX_ instance_holder_t* instance_holder_p, const char* funcname, STRLEN funcname_len, wasm_exporttype_t** export_type_pp) {
 
-    wasm_extern_t* export = _get_instance_export(instance_holder_p, funcname, funcname_len, export_type_pp);
+    wasm_extern_t* export = _get_instance_export(aTHX_ instance_holder_p, funcname, funcname_len, export_type_pp);
 
     //fprintf(stderr, "export %.*s: %p\n", (int) funcname_len, funcname, export);
 
@@ -266,7 +266,7 @@ SV* create_instance_sv (pTHX_ SV* class_sv, SV* module_sv, SV* imports_sv, wasme
         _croak_wasmer_error("Failed to instantiate WASM module");
     }
 
-    return instance_to_sv(instance, module_sv, class);
+    return instance_to_sv(aTHX_ instance, module_sv, class);
 }
 
 void destroy_instance_sv (pTHX_ SV* self_sv) {

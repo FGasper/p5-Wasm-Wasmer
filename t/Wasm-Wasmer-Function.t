@@ -75,6 +75,9 @@ sub test_anonymous_function : Tests(6) {
     my $instance1 = $module->create_instance( { my => { func => $func_2_1 } } );
     my $instance2 = $module->create_instance( { my => { func => $func_2_1 } } );
 
+use Devel::Peek;
+Dump $func_2_1;
+
     undef $func_2_1;
 
     is(

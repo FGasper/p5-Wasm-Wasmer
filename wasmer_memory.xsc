@@ -123,7 +123,7 @@ static inline SV* memory_get (pTHX_ extern_holder_t* holder_p, SV* offset_sv, SV
 SV* new_memory_import_sv(pTHX_ SV* store_sv, wasm_limits_t* limits_p) {
     own wasm_memorytype_t* memtype = wasm_memorytype_new(limits_p);
 
-    store_holder_t* s_holder = svrv_to_ptr(store_sv);
+    store_holder_t* s_holder = svrv_to_ptr(aTHX_ store_sv);
 
     wasm_memory_t* memory = wasm_memory_new(s_holder->store, memtype);
 

@@ -5,12 +5,22 @@
 #my $wasmer_lflags = `~/.wasmer/bin/wasmer config --libs`;
 #print "LFLAGS: $wasmer_lflags\n";
 
-my $wasmer_cflags = `wasmer config --cflags`;
-die 'no cflags' if !$wasmer_cflags;
 my $wasmer_lflags = `wasmer config --libs`;
 die 'no lflags' if !$wasmer_lflags;
 
+my $wasmer_cflags = `wasmer config --cflags`;
+die 'no cflags' if !$wasmer_cflags;
+
+my $wasmer_libdir = `wasmer config --libdir`;
+
+chomp ($wasmer_cflags, $wasmer_lflags, $wasmer_libdir);
+
+print "Wasmer CFLAGS: $wasmer_cflags\n";
+print "Wasmer LIBS: $wasmer_lflags\n";
+
 use ExtUtils::MakeMaker;
+use Config;
+
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 WriteMakefile(
@@ -25,8 +35,10 @@ WriteMakefile(
     ),
     LIBS              => [$wasmer_lflags], # e.g., '-lm'
     DEFINE            => '', # e.g., '-DHAVE_SOMETHING'
-    INC               => "-Wall -I. --std=c99 $wasmer_cflags",
+    INC               => "-Wall -I. --std=c11 $wasmer_cflags",
     LICENSE           => "perl_5",
+
+    LDDLFLAGS => "$Config{'lddlflags'} -Wl,-rpath,$wasmer_libdir",
 
     META_MERGE => {
         'meta-spec' => { version => 2 },

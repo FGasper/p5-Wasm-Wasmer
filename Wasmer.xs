@@ -1,3 +1,5 @@
+#pragma clang diagnostic ignored "-Wcompound-token-split-by-macro"
+
 #define PERL_NO_GET_CONTEXT
 #include "EXTERN.h"
 #include "perl.h"
@@ -272,11 +274,11 @@ create_function (SV* self_sv, ...)
                 code_svcv = value;
             }
             else if (WW_sv_eq_str(ST(i), "params")) {
-                _validate_valtype_svav(value, ST(i));
+                _validate_valtype_svav(aTHX_ value, ST(i));
                 params_av = (AV*) SvRV(value);
             }
             else if (WW_sv_eq_str(ST(i), "results")) {
-                _validate_valtype_svav(value, ST(i));
+                _validate_valtype_svav(aTHX_ value, ST(i));
                 results_av = (AV*) SvRV(value);
             }
             else {
@@ -292,7 +294,7 @@ create_function (SV* self_sv, ...)
         wasm_functype_t* functype = wasm_functype_new(&params, &results);
         assert(functype);
 
-        wasm_func_t* func = function_from_coderef(
+        wasm_func_t* func = function_from_coderef( aTHX_
             store_holder_p->store,
             (CV*) code_svcv,
             functype,
@@ -323,7 +325,7 @@ create_i32_const (SV* self_sv, SV* value_sv)
             wasm_globaltype_content(gtype)
         );
 
-        wasm_val_t val = grok_wasm_val(kind, value_sv);
+        wasm_val_t val = grok_wasm_val(aTHX_ kind, value_sv);
 
         wasm_global_t* global = wasm_global_new(
             store_holder_p->store,
@@ -356,11 +358,11 @@ create_memory (SV* self_sv, ...)
 
         for (I32 i=1; i<items; i += 2) {
             if (WW_sv_eq_str(ST(i), "initial")) {
-                limits.min = grok_i32(ST(1 + i));
+                limits.min = grok_i32(aTHX_ ST(1 + i));
                 saw_initial = true;
             }
             else if (WW_sv_eq_str(ST(i), "maximum")) {
-                limits.max = grok_i32(ST(1 + i));
+                limits.max = grok_i32(aTHX_ ST(1 + i));
             }
             else {
                 WW_croak_bad_input_name(ST(i));
@@ -588,7 +590,7 @@ export (SV* self_sv, SV* search_name)
 
         wasm_exporttype_t* export_type_p;
 
-        wasm_extern_t* extern_p = _get_instance_export(
+        wasm_extern_t* extern_p = _get_instance_export( aTHX_
             instance_holder_p,
             search, searchlen,
             &export_type_p
@@ -654,7 +656,9 @@ call (SV* self_sv, SV* funcname_sv, ...)
 void
 DESTROY (SV* self_sv)
     CODE:
+        fprintf(stderr, "before destroy instance\n");
         destroy_instance_sv(aTHX_ self_sv);
+        fprintf(stderr, "after destroy instance\n");
 
 # ----------------------------------------------------------------------
 
@@ -766,7 +770,7 @@ set (SV* self_sv, SV* replacement_sv, SV* offset_sv=NULL)
     CODE:
         extern_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
 
-        memory_set(holder_p, replacement_sv, offset_sv);
+        memory_set(aTHX_ holder_p, replacement_sv, offset_sv);
 
         RETVAL = SvREFCNT_inc(self_sv);
 
@@ -782,7 +786,7 @@ get (SV* self_sv, SV* offset_sv=NULL, SV* length_sv=NULL)
 
         extern_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
 
-        RETVAL = memory_get(holder_p, offset_sv, length_sv);
+        RETVAL = memory_get(aTHX_ holder_p, offset_sv, length_sv);
 
     OUTPUT:
         RETVAL
@@ -792,7 +796,7 @@ grow (SV* self_sv, SV* delta_sv)
     CODE:
         extern_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
 
-        memory_grow(holder_p, delta_sv);
+        memory_grow(aTHX_ holder_p, delta_sv);
 
         RETVAL = SvREFCNT_inc(self_sv);
 
@@ -806,7 +810,7 @@ limits (SV* self_sv)
 
         extern_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
 
-        wasm_limits_t limits = memory_limits(holder_p);
+        wasm_limits_t limits = memory_limits(aTHX_ holder_p);
 
         EXTEND(SP, 2);
         mPUSHu(limits.min);
