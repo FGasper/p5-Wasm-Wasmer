@@ -25,7 +25,7 @@ sub test_anonymous_function : Tests(6) {
 
     my $ran = 3;
 
-    my $func_0_0 = $store->create_function( code => sub { ++$ran; () } );
+    my $func_0_0 = $store->create_function( code => sub { ++$ran; } );
 
     isa_ok( $func_0_0, ['Wasm::Wasmer::Function'], 'create_function() return' );
 
