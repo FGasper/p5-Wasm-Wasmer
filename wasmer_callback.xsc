@@ -74,7 +74,7 @@ wasm_trap_t* host_func_callback( void* env, const wasm_val_vec_t* args, wasm_val
     // In Perl 5.22+ got_count is always 0 if G_VOID. Before then,
     // if you return 1 thing, you got 1 thing, even in G_VOID; let’s
     // treat that a bug to work around by never checking the G_VOID case:
-    if (callflags & G_VOID) {
+    if (results->size == 0) {
         while (got_count--) (void) POPs;
         got_count = 0;
     }
