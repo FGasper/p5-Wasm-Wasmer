@@ -2,6 +2,7 @@ MANIFEST
 Makefile.PL
 README.md
 Wasmer.xs
+cpanfile
 lib/Wasm/Wasmer.pm
 lib/Wasm/Wasmer/Extern.pm
 lib/Wasm/Wasmer/Function.pm

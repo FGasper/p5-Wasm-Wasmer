@@ -18,7 +18,7 @@ chomp ($wasmer_cflags, $wasmer_lflags, $wasmer_libdir);
 print "Wasmer CFLAGS: $wasmer_cflags\n";
 print "Wasmer LIBS: $wasmer_lflags\n";
 
-use ExtUtils::MakeMaker;
+use ExtUtils::MakeMaker::CPANfile;
 use Config;
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
@@ -45,19 +45,12 @@ WriteMakefile(
         resources => {
             repository => {
                 type => 'git',
-                url => 'git://github.com/FGasper/p5-Wasm-Wasmer.git',
-                web => 'https://github.com/FGasper/p5-Wasm-Wasmer',
+                url => 'git://github.com/cpanel/p5-Wasm-Wasmer.git',
+                web => 'https://github.com/cpanel/p5-Wasm-Wasmer',
             },
             bugtracker => {
-                web => 'https://github.com/FGasper/p5-Wasm-Wasmer/issues',
+                web => 'https://github.com/cpanel/p5-Wasm-Wasmer/issues',
             },
         },
-    },
-
-    TEST_REQUIRES => {
-        'Test::More' => 0,
-        'Test::Deep' => 0,
-        'Test::FailWarnings' => 0,
-        'File::Temp' => 0,
     },
 );
