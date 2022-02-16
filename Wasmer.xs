@@ -24,6 +24,8 @@
 
 #define _DEBUG 0
 
+#define my_av_top_index av_len
+
 #include "p5_wasm_wasmer.h"
 #include "wasmer_engine.xsc"
 #include "wasmer_store.xsc"
@@ -131,7 +133,7 @@ static inline wasm_valtype_vec_t _valtypes_ar_to_vec( pTHX_ AV* input_av ) {
     wasm_valtype_vec_t vec;
 
     if (input_av) {
-        int len = 1 + av_top_index(input_av);
+        int len = 1 + my_av_top_index(input_av);
 
         wasm_valtype_t* types[len];
 
@@ -158,7 +160,7 @@ static inline void _validate_valtype_svav( pTHX_ SV* value, SV* key ) {
 
     AV* av = (AV*) SvRV(value);
 
-    int len = 1 + av_top_index(av);
+    int len = 1 + my_av_top_index(av);
 
     int i;
 
@@ -863,7 +865,7 @@ _new (SV* classname_sv, SV* wasiname_sv, SV* opts_hr=NULL)
             if (args_arr && *args_arr && SvOK(*args_arr)) {
                 AV* args = (AV*) SvRV(*args_arr);
 
-                SSize_t av_len = 1 + av_top_index(args);
+                SSize_t av_len = 1 + my_av_top_index(args);
 
                 for (UV i=0; i<av_len; i++) {
                     SV *arg = *(av_fetch(args, i, 0));
@@ -918,7 +920,7 @@ _new (SV* classname_sv, SV* wasiname_sv, SV* opts_hr=NULL)
             if (svr && *svr && SvOK(*svr)) {
                 AV* env = (AV*) SvRV(*svr);
 
-                SSize_t av_len = 1 + av_top_index(env);
+                SSize_t av_len = 1 + my_av_top_index(env);
 
                 for (UV i=0; i<av_len; i += 2) {
                     const char *key = SvPVutf8_nolen( *(av_fetch(env, i, 0) ) );
@@ -932,7 +934,7 @@ _new (SV* classname_sv, SV* wasiname_sv, SV* opts_hr=NULL)
             if (svr && *svr && SvOK(*svr)) {
                 AV* dirs = (AV*) SvRV(*svr);
 
-                SSize_t av_len = 1 + av_top_index(dirs);
+                SSize_t av_len = 1 + my_av_top_index(dirs);
 
                 for (UV i=0; i<av_len; i++) {
                     SV* dir = *(av_fetch(dirs, i, 0));

@@ -28,7 +28,7 @@ This class subclasses L<Wasm::Wasmer::Extern>.
 
 =head1 METHODS
 
-=head2 @RETURNS = I<OBJ>->call(@ARGS)
+=head2 @RETURNS = I<OBJ>->call(@INPUTS)
 
 Calls the function, passing the
 given @INPUTS and returning the returned values as a list.
