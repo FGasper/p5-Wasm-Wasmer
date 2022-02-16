@@ -72,7 +72,7 @@ sub test_create : Tests(2) {
 }
 
 sub test_filesys_nonutf8 : Tests(3) {
-    my $baddir = "/foo/\xff\xff\xff";
+    my $baddir = "/../../foo/\xff\xff\xff";
 
     my $baddir_utf8 = $baddir;
     utf8::encode($baddir_utf8);
