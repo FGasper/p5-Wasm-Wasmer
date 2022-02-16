@@ -5,6 +5,8 @@
 #include "perl.h"
 #include "XSUB.h"
 
+#include "ppport.h"
+
 #include <stdio.h>
 #include <assert.h>
 #include <stdbool.h>
