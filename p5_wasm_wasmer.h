@@ -307,7 +307,10 @@ static inline float grok_f32 (pTHX_ SV* sv) {
     return myfloat;
 }
 
-static_assert(USE_64_BIT_INT, "IV is 64-bit");
+#ifndef USE_64_BIT_INT
+static_assert(0, "IV is 64-bit");
+#endif
+
 #define grok_i64 grok_iv
 
 wasm_val_t grok_wasm_val (pTHX_ wasm_externkind_t kind, SV* given) {
