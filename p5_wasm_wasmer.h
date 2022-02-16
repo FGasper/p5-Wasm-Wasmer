@@ -16,7 +16,7 @@ typedef size_t usize;
 
 #define P5_WASM_WASMER_INSTANCE_CLASS "Wasm::Wasmer::Instance"
 
-#define _IN_GLOBAL_DESTRUCTION (PL_phase == PERL_PHASE_DESTRUCT)
+#define _IN_GLOBAL_DESTRUCTION (PL_dirty)
 
 #define warn_destruct_if_needed(sv, startpid) STMT_START { \
     if (_IN_GLOBAL_DESTRUCTION && (getpid() == startpid)) warn( \
