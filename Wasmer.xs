@@ -865,9 +865,9 @@ _new (SV* classname_sv, SV* wasiname_sv, SV* opts_hr=NULL)
             if (args_arr && *args_arr && SvOK(*args_arr)) {
                 AV* args = (AV*) SvRV(*args_arr);
 
-                SSize_t av_len = 1 + my_av_top_index(args);
+                SSize_t av_length = 1 + my_av_top_index(args);
 
-                for (UV i=0; i<av_len; i++) {
+                for (UV i=0; i<av_length; i++) {
                     SV *arg = *(av_fetch(args, i, 0));
 
                     wasi_config_arg(config, SvPVutf8_nolen(arg));
@@ -920,9 +920,9 @@ _new (SV* classname_sv, SV* wasiname_sv, SV* opts_hr=NULL)
             if (svr && *svr && SvOK(*svr)) {
                 AV* env = (AV*) SvRV(*svr);
 
-                SSize_t av_len = 1 + my_av_top_index(env);
+                SSize_t av_length = 1 + my_av_top_index(env);
 
-                for (UV i=0; i<av_len; i += 2) {
+                for (UV i=0; i<av_length; i += 2) {
                     const char *key = SvPVutf8_nolen( *(av_fetch(env, i, 0) ) );
                     const char *value = SvPVutf8_nolen( *(av_fetch(env, 1 + i, 0) ) );
 
@@ -934,9 +934,9 @@ _new (SV* classname_sv, SV* wasiname_sv, SV* opts_hr=NULL)
             if (svr && *svr && SvOK(*svr)) {
                 AV* dirs = (AV*) SvRV(*svr);
 
-                SSize_t av_len = 1 + my_av_top_index(dirs);
+                SSize_t av_length = 1 + my_av_top_index(dirs);
 
-                for (UV i=0; i<av_len; i++) {
+                for (UV i=0; i<av_length; i++) {
                     SV* dir = *(av_fetch(dirs, i, 0));
                     bool ok = wasi_config_preopen_dir(config, SvPVutf8_nolen(dir));
                     if (!ok) {
