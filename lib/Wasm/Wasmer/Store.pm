@@ -39,10 +39,10 @@ modules for a bit more context.
 
 =head2 $obj = I<CLASS>->new( %OPTS )
 
-Instantiates this class, which wraps Wasmer `wasm_engine_t` and
-`wasm_store_t` instances.
+Instantiates this class, which wraps Wasmer C<wasm_engine_t> and
+C<wasm_store_t> instances.
 
-This accepts the arguments that in C would go into the `wasm_config_t`.
+This accepts the arguments that in C would go into the C<wasm_config_t>.
 Currently that includes:
 
 =over
@@ -52,6 +52,8 @@ Currently that includes:
 =item * C<engine> - C<universal>, C<dylib>
 
 =back
+
+NB: Your Wasmer may not support all of the above.
 
 =head2 IMPORTS
 

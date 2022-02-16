@@ -1,6 +1,7 @@
 # NAME
 
-Wasm::Wasmer - Run [WebAssembly](https://webassembly.org/) via [http://wasmer.io/Wasmer|Wasmer](http://wasmer.io/Wasmer|Wasmer) in Perl
+Wasm::Wasmer - [WebAssembly](https://webassembly.org/) in Perl via
+[http://wasmer.io/Wasmer|Wasmer](http://wasmer.io/Wasmer|Wasmer)
 
 # SYNOPSIS
 
@@ -23,8 +24,8 @@ Wasm::Wasmer - Run [WebAssembly](https://webassembly.org/) via [http://wasmer.io
 
 # DESCRIPTION
 
-This distribution provides an XS binding for [http://wasmer.io/Wasmer|Wasmer](http://wasmer.io/Wasmer|Wasmer),
-yielding a simple, fast way to run WebAssembly (WASM) in Perl.
+This distribution provides an XS binding for Wasmer.
+This provides a simple, fast way to run WebAssembly (WASM) in Perl.
 
 # MODULE RELATIONSHIPS
 
@@ -33,11 +34,12 @@ We mostly follow the relationships from
 
 ## \* [Wasm::Wasmer::Store](https://metacpan.org/pod/Wasm%3A%3AWasmer%3A%3AStore) manages Wasmer’s global state, including
 storage of any imports & exports. It contains compiler & engine
-configuration as well. This object is auto-created by default.
+configuration as well. This object can be auto-created by default
+or manually instantiated.
 
 ## \* [Wasm::Wasmer::Module](https://metacpan.org/pod/Wasm%3A%3AWasmer%3A%3AModule) uses a [Wasm::Wasmer::Store](https://metacpan.org/pod/Wasm%3A%3AWasmer%3A%3AStore) instance
-to represent a parsed WASM module. (This one you have to instantiate
-manually.)
+to represent a parsed WASM module. This one you always instantiate
+manually.
 
 ## \* [Wasm::Wasmer::Instance](https://metacpan.org/pod/Wasm%3A%3AWasmer%3A%3AInstance) uses a [Wasm::Wasmer::Module](https://metacpan.org/pod/Wasm%3A%3AWasmer%3A%3AModule) instance
 to represent an in-progress WASM program. You’ll instantiate these
@@ -56,8 +58,8 @@ Binary payloads (e.g., memory contents) are byte strings.
 
 # SEE ALSO
 
-[Wasm::Wasmtime](https://metacpan.org/pod/Wasm%3A%3AWasmtime) is an FFI binding to [https://github.com/bytecodealliance/wasmtime](https://github.com/bytecodealliance/wasmtime),
-a similar project to Wasmer.
+[Wasm::Wasmtime](https://metacpan.org/pod/Wasm%3A%3AWasmtime) is an FFI binding to
+[https://github.com/bytecodealliance/wasmtime](https://github.com/bytecodealliance/wasmtime), a similar project to Wasmer.
 
 [Wasm](https://metacpan.org/pod/Wasm) provides syntactic sugar around Wasm::Wasmtime.
 
@@ -69,7 +71,3 @@ This namespace defines the following:
 
 Converts WASM text format to its binary-format equivalent. $TEXT
 should be (character-decoded) text.
-
-# TODO
-
-- Add table support.
