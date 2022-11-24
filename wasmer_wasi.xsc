@@ -3,16 +3,18 @@
 
 typedef struct {
     wasi_env_t* env;
+    SV* store_sv;
 
     pid_t pid;
 } wasi_holder_t;
 
-wasi_holder_t* wasi_env_to_holder (pTHX_ wasi_env_t* wasienv) {
+wasi_holder_t* wasi_env_to_holder (pTHX_ SV* store_sv, wasi_env_t* wasienv) {
     wasi_holder_t* wasi_holder_p;
 
     Newx(wasi_holder_p, 1, wasi_holder_t);
 
     wasi_holder_p->env = wasienv;
+    wasi_holder_p->store_sv = SvREFCNT_inc(store_sv);
     wasi_holder_p->pid = getpid();
 
     return wasi_holder_p;

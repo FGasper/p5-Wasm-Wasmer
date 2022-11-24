@@ -5,6 +5,17 @@
 #my $wasmer_lflags = `~/.wasmer/bin/wasmer config --libs`;
 #print "LFLAGS: $wasmer_lflags\n";
 
+my $wasmer_version = `wasmer version`;
+die 'no version' if !$wasmer_version;
+
+$wasmer_version =~ s<\A.*?([0-9]).*><$1>ms or do {
+    die "Unrecognized Wasmer version: $wasmer_version\n";
+};
+
+if ($wasmer_version < 3) {
+    die "Wasmer v3 or above is required.\n";
+}
+
 my $wasmer_lflags = `wasmer config --libs`;
 die 'no lflags' if !$wasmer_lflags;
 

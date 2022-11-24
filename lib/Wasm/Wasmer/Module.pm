@@ -23,7 +23,7 @@ Wasm::Wasmer::Module
 
 … or, for L<WASI|http://wasi.dev>:
 
-    my $wasi = Wasm::Wasmer::WASI->new( .. );
+    my $wasi = $module->store()->create_wasi( .. );
 
     my $instance = $module->create_wasi_instance($wasi);
 
@@ -103,7 +103,7 @@ That object’s WebAssembly imports will include the L<WASI|https://wasi.dev>
 interface.
 
 $WASI argument is either undef or a L<Wasm::Wasmer::WASI> instance.
-Undef is equivalent to C<Wasm::Wasmer::WASI-E<gt>new()>.
+Undef is equivalent to C<$self-E<gt>store()-E<gt>create_wasi()>.
 
 The optional %IMPORTS reference (I<reference>!) is as for C<create_instance()>.
 Note that you can override WASI imports with this, if you so desire.

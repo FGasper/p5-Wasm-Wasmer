@@ -41,7 +41,7 @@ __PACKAGE__->new()->runtests() if !caller;
 
 sub test_create : Tests(2) {
     isa_ok(
-        Wasm::Wasmer::WASI->new(),
+        Wasm::Wasmer::Store->new()->create_wasi(),
         ['Wasm::Wasmer::WASI'],
         'empty new()',
     );
@@ -50,7 +50,7 @@ sub test_create : Tests(2) {
     my $dir2 = File::Temp::tempdir( CLEANUP => 1 );
 
     isa_ok(
-        Wasm::Wasmer::WASI->new(
+        Wasm::Wasmer::Store->new()->create_wasi(
             stdin  => 'inherit',
             stdout => 'inherit',
             stderr => 'inherit',
@@ -82,7 +82,7 @@ sub test_filesys_nonutf8 : Tests(3) {
     utf8::encode($baddir_utf8);
 
     my $err = dies {
-        Wasm::Wasmer::WASI->new(
+        Wasm::Wasmer::Store->new()->create_wasi(
             preopen_dirs => [$baddir],
         );
     };
@@ -98,7 +98,7 @@ sub test_filesys_nonutf8 : Tests(3) {
     # --------------------------------------------------
 
     $err = dies {
-        Wasm::Wasmer::WASI->new(
+        Wasm::Wasmer::Store->new()->create_wasi(
             map_dirs => {
                 $baddir => '/good/dir',
             },
@@ -114,7 +114,7 @@ sub test_filesys_nonutf8 : Tests(3) {
     );
 
     $err = dies {
-        Wasm::Wasmer::WASI->new(
+        Wasm::Wasmer::Store->new()->create_wasi(
             map_dirs => {
                 '/good/dir' => $baddir,
             },
@@ -136,11 +136,6 @@ sub test_filesys_nonutf8 : Tests(3) {
 sub test_fd_write : Tests(4) {
     my $ok_wasm = Wasm::Wasmer::wat2wasm(_WAT);
 
-    my $wasi = Wasm::Wasmer::WASI->new(
-        stdout => 'capture',
-        stderr => 'capture',
-    );
-
     my @tt = (
         [ 1 => 'read_stdout' ],
         [ 2 => 'read_stderr' ],
@@ -149,9 +144,14 @@ sub test_fd_write : Tests(4) {
     for my $t_ar (@tt) {
         my ( $wasi_fd, $read_fn ) = @$t_ar;
 
-        my $instance = Wasm::Wasmer::Module->new($ok_wasm)->create_wasi_instance(
-            $wasi,
+        my $module = Wasm::Wasmer::Module->new($ok_wasm);
+
+        my $wasi = $module->store()->create_wasi(
+            stdout => 'capture',
+            stderr => 'capture',
         );
+
+        my $instance = $module->create_wasi_instance($wasi);
 
         my $mem     = $instance->export('memory');
         my $payload = 'hello';

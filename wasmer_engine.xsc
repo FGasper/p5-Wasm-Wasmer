@@ -27,7 +27,7 @@ static const compiler_opt_t compiler_opts[] = {
 
 static const engine_opt_t engine_opts[] = {
     { .optval = UNIVERSAL, .argval = "universal" },
-    { .optval = DYLIB,     .argval = "dylib" },
+    //{ .optval = DYLIB,     .argval = "dylib" },
 };
 
 wasm_engine_t* create_engine (pTHX_ SV** args, unsigned argscount) {

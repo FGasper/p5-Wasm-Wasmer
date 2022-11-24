@@ -108,8 +108,8 @@ unsigned _call_wasm( pTHX_ SV** SP, wasm_func_t* function, SV** given_arg, unsig
     return results_count;
 }
 
-static inline void _wasi_config_delete( wasi_config_t* config ) {
-    wasi_env_t* wasienv = wasi_env_new(config);
+static inline void _wasi_config_delete( wasm_store_t* store, wasi_config_t* config ) {
+    wasi_env_t* wasienv = wasi_env_new(store, config);
     wasi_env_delete(wasienv);
 }
 
@@ -380,6 +380,137 @@ create_memory (SV* self_sv, ...)
     OUTPUT:
         RETVAL
 
+SV*
+_create_wasi (SV* self_sv, SV* wasiname_sv, SV* opts_hr)
+    CODE:
+        const char* wasiname = SvPVutf8_nolen(wasiname_sv);
+
+        if (!opts_hr && !SvOK(opts_hr)) croak("no opts!??");
+
+        store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ self_sv);
+
+        wasi_config_t* config = wasi_config_new(wasiname);
+
+        HV* opts_hv = (HV*) SvRV(opts_hr);
+
+        SV** args_arr = hv_fetchs(opts_hv, "args", 0);
+
+        if (args_arr && *args_arr && SvOK(*args_arr)) {
+            AV* args = (AV*) SvRV(*args_arr);
+
+            SSize_t av_length = 1 + my_av_top_index(args);
+
+            for (UV i=0; i<av_length; i++) {
+                SV *arg = *(av_fetch(args, i, 0));
+
+                wasi_config_arg(config, SvPVutf8_nolen(arg));
+            }
+        }
+
+        SV** svr = hv_fetchs(opts_hv, "stdin", 0);
+        if (svr && *svr && SvOK(*svr)) {
+            const char* value = SvPVbyte_nolen(*svr);
+
+            if (strEQ(value, "inherit")) {
+                wasi_config_inherit_stdin(config);
+            }
+            else {
+                assert(0);
+            }
+        }
+
+        svr = hv_fetchs(opts_hv, "stdout", 0);
+        if (svr && *svr && SvOK(*svr)) {
+            const char* value = SvPVbyte_nolen(*svr);
+
+            if (strEQ(value, "inherit")) {
+                wasi_config_inherit_stdout(config);
+            }
+            else if (strEQ(value, "capture")) {
+                wasi_config_capture_stdout(config);
+            }
+            else {
+                assert(0);
+            }
+        }
+
+        svr = hv_fetchs(opts_hv, "stderr", 0);
+        if (svr && *svr && SvOK(*svr)) {
+            const char* value = SvPVbyte_nolen(*svr);
+
+            if (strEQ(value, "inherit")) {
+                wasi_config_inherit_stderr(config);
+            }
+            else if (strEQ(value, "capture")) {
+                wasi_config_capture_stderr(config);
+            }
+            else {
+                assert(0);
+            }
+        }
+
+        svr = hv_fetchs(opts_hv, "env", 0);
+        if (svr && *svr && SvOK(*svr)) {
+            AV* env = (AV*) SvRV(*svr);
+
+            SSize_t av_length = 1 + my_av_top_index(env);
+
+            for (UV i=0; i<av_length; i += 2) {
+                const char *key = SvPVutf8_nolen( *(av_fetch(env, i, 0) ) );
+                const char *value = SvPVutf8_nolen( *(av_fetch(env, 1 + i, 0) ) );
+
+                wasi_config_env(config, key, value);
+            }
+        }
+
+        svr = hv_fetchs(opts_hv, "preopen_dirs", 0);
+        if (svr && *svr && SvOK(*svr)) {
+            AV* dirs = (AV*) SvRV(*svr);
+
+            SSize_t av_length = 1 + my_av_top_index(dirs);
+
+            for (UV i=0; i<av_length; i++) {
+                SV* dir = *(av_fetch(dirs, i, 0));
+                bool ok = wasi_config_preopen_dir(config, SvPVutf8_nolen(dir));
+                if (!ok) {
+                    _wasi_config_delete(store_holder_p->store, config);
+                    _croak_wasmer_error("Failed to preopen directory %" SVf, dir);
+                }
+            }
+        }
+
+        svr = hv_fetchs(opts_hv, "map_dirs", 0);
+        if (svr && *svr && SvOK(*svr)) {
+            HV* map = (HV*) SvRV(*svr);
+
+            hv_iterinit(map);
+            HE* h_entry;
+
+            while ( (h_entry = hv_iternext(map)) ) {
+                SV* key = hv_iterkeysv(h_entry);
+                SV* value = hv_iterval(map, h_entry);
+
+                const char* keystr = SvPVutf8_nolen(key);
+                const char* valuestr = SvPVutf8_nolen(value);
+
+                bool ok = wasi_config_mapdir( config, keystr, valuestr );
+
+                if (!ok) {
+                    _wasi_config_delete(store_holder_p->store, config);
+                    _croak_wasmer_error("Failed to map alias %s to directory %s", keystr, valuestr);
+                }
+            }
+        }
+
+        wasi_env_t* wasienv = wasi_env_new(store_holder_p->store, config);
+
+        wasi_holder_t* holder = wasi_env_to_holder(aTHX_ self_sv, wasienv);
+
+        RETVAL = ptr_to_svrv(aTHX_ holder, gv_stashpv(WASI_CLASS, FALSE));
+
+    OUTPUT:
+        RETVAL
+
 void
 DESTROY (SV* self_sv)
     CODE:
@@ -502,10 +633,14 @@ validate (SV* wasm_sv, SV* store_sv_in=NULL)
 SV*
 create_wasi_instance (SV* self_sv, SV* wasi_sv=NULL, SV* imports_sv=NULL)
     CODE:
+        module_holder_t* module_holder_p = svrv_to_ptr(aTHX_ self_sv);
+        SV* store_sv = module_holder_p->store_sv;
+        store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ store_sv);
+
         if (NULL == wasi_sv || !SvOK(wasi_sv)) {
             wasi_config_t* config = wasi_config_new("");
-            wasi_env_t* wasienv = wasi_env_new(config);
-            wasi_holder_t* holder = wasi_env_to_holder(aTHX_ wasienv);
+            wasi_env_t* wasienv = wasi_env_new(store_holder_p->store, config);
+            wasi_holder_t* holder = wasi_env_to_holder(aTHX_ store_sv, wasienv);
 
             wasi_sv = ptr_to_svrv(aTHX_ holder, gv_stashpv(WASI_CLASS, FALSE));
 
@@ -518,10 +653,6 @@ create_wasi_instance (SV* self_sv, SV* wasi_sv=NULL, SV* imports_sv=NULL)
         wasi_holder_t* wasi_holder_p = svrv_to_ptr(aTHX_ wasi_sv);
         wasi_env_t* wasi_env_p = wasi_holder_p->env;
 
-        module_holder_t* module_holder_p = svrv_to_ptr(aTHX_ self_sv);
-        SV* store_sv = module_holder_p->store_sv;
-        store_holder_t* store_holder_p = svrv_to_ptr(aTHX_ store_sv);
-
         wasmer_named_extern_vec_t host_imports;
 
         /*
@@ -529,9 +660,8 @@ create_wasi_instance (SV* self_sv, SV* wasi_sv=NULL, SV* imports_sv=NULL)
             only way currently to mix WASI imports with host functions.
         */
         bool get_imports_result = wasi_get_unordered_imports(
-            store_holder_p->store,
-            module_holder_p->module,
             wasi_env_p,
+            module_holder_p->module,
             &host_imports
         );
 
@@ -542,6 +672,12 @@ create_wasi_instance (SV* self_sv, SV* wasi_sv=NULL, SV* imports_sv=NULL)
         SV* instance_sv = create_instance_sv(aTHX_ NULL, self_sv, imports_sv, &host_imports);
 
         instance_holder_t* instance_holder_p = svrv_to_ptr(aTHX_ instance_sv);
+
+        if (!wasi_env_initialize_instance(wasi_env_p, store_holder_p->store, instance_holder_p->instance)) {
+            SvREFCNT_dec(instance_sv);
+            _croak_wasmer_error("Failed to initialize WASI");
+        }
+
         instance_holder_p->wasi_sv = wasi_sv;
         SvREFCNT_inc(wasi_sv);
 
@@ -850,131 +986,10 @@ call (SV* self_sv, ...)
 MODULE = Wasm::Wasmer       PACKAGE = Wasm::Wasmer::WASI
 
 SV*
-_new (SV* classname_sv, SV* wasiname_sv, SV* opts_hr=NULL)
+store (SV* self_sv)
     CODE:
-        const char* classname = SvPVbyte_nolen(classname_sv);
-        const char* wasiname = SvPVutf8_nolen(wasiname_sv);
-
-        wasi_config_t* config = wasi_config_new(wasiname);
-
-        if (opts_hr && SvOK(opts_hr)) {
-            HV* opts_hv = (HV*) SvRV(opts_hr);
-
-            SV** args_arr = hv_fetchs(opts_hv, "args", 0);
-
-            if (args_arr && *args_arr && SvOK(*args_arr)) {
-                AV* args = (AV*) SvRV(*args_arr);
-
-                SSize_t av_length = 1 + my_av_top_index(args);
-
-                for (UV i=0; i<av_length; i++) {
-                    SV *arg = *(av_fetch(args, i, 0));
-
-                    wasi_config_arg(config, SvPVutf8_nolen(arg));
-                }
-            }
-
-            SV** svr = hv_fetchs(opts_hv, "stdin", 0);
-            if (svr && *svr && SvOK(*svr)) {
-                const char* value = SvPVbyte_nolen(*svr);
-
-                if (strEQ(value, "inherit")) {
-                    wasi_config_inherit_stdin(config);
-                }
-                else {
-                    assert(0);
-                }
-            }
-
-            svr = hv_fetchs(opts_hv, "stdout", 0);
-            if (svr && *svr && SvOK(*svr)) {
-                const char* value = SvPVbyte_nolen(*svr);
-
-                if (strEQ(value, "inherit")) {
-                    wasi_config_inherit_stdout(config);
-                }
-                else if (strEQ(value, "capture")) {
-                    wasi_config_capture_stdout(config);
-                }
-                else {
-                    assert(0);
-                }
-            }
-
-            svr = hv_fetchs(opts_hv, "stderr", 0);
-            if (svr && *svr && SvOK(*svr)) {
-                const char* value = SvPVbyte_nolen(*svr);
-
-                if (strEQ(value, "inherit")) {
-                    wasi_config_inherit_stderr(config);
-                }
-                else if (strEQ(value, "capture")) {
-                    wasi_config_capture_stderr(config);
-                }
-                else {
-                    assert(0);
-                }
-            }
-
-            svr = hv_fetchs(opts_hv, "env", 0);
-            if (svr && *svr && SvOK(*svr)) {
-                AV* env = (AV*) SvRV(*svr);
-
-                SSize_t av_length = 1 + my_av_top_index(env);
-
-                for (UV i=0; i<av_length; i += 2) {
-                    const char *key = SvPVutf8_nolen( *(av_fetch(env, i, 0) ) );
-                    const char *value = SvPVutf8_nolen( *(av_fetch(env, 1 + i, 0) ) );
-
-                    wasi_config_env(config, key, value);
-                }
-            }
-
-            svr = hv_fetchs(opts_hv, "preopen_dirs", 0);
-            if (svr && *svr && SvOK(*svr)) {
-                AV* dirs = (AV*) SvRV(*svr);
-
-                SSize_t av_length = 1 + my_av_top_index(dirs);
-
-                for (UV i=0; i<av_length; i++) {
-                    SV* dir = *(av_fetch(dirs, i, 0));
-                    bool ok = wasi_config_preopen_dir(config, SvPVutf8_nolen(dir));
-                    if (!ok) {
-                        _wasi_config_delete(config);
-                        _croak_wasmer_error("Failed to preopen directory %" SVf, dir);
-                    }
-                }
-            }
-
-            svr = hv_fetchs(opts_hv, "map_dirs", 0);
-            if (svr && *svr && SvOK(*svr)) {
-                HV* map = (HV*) SvRV(*svr);
-
-                hv_iterinit(map);
-                HE* h_entry;
-
-                while ( (h_entry = hv_iternext(map)) ) {
-                    SV* key = hv_iterkeysv(h_entry);
-                    SV* value = hv_iterval(map, h_entry);
-
-                    const char* keystr = SvPVutf8_nolen(key);
-                    const char* valuestr = SvPVutf8_nolen(value);
-
-                    bool ok = wasi_config_mapdir( config, keystr, valuestr );
-
-                    if (!ok) {
-                        _wasi_config_delete(config);
-                        _croak_wasmer_error("Failed to map alias %s to directory %s", keystr, valuestr);
-                    }
-                }
-            }
-        }
-
-        wasi_env_t* wasienv = wasi_env_new(config);
-
-        wasi_holder_t* holder = wasi_env_to_holder(aTHX_ wasienv);
-
-        RETVAL = ptr_to_svrv(aTHX_ holder, gv_stashpv(classname, FALSE));
+        wasi_holder_t* holder_p = svrv_to_ptr(aTHX_ self_sv);
+        RETVAL = SvREFCNT_inc(holder_p->store_sv);
 
     OUTPUT:
         RETVAL
@@ -1010,6 +1025,7 @@ DESTROY (SV* self_sv)
 
         warn_destruct_if_needed(self_sv, holder->pid);
 
+        SvREFCNT_dec(holder->store_sv);
         wasi_env_delete(holder->env);
 
         Safefree(holder);

@@ -35,7 +35,7 @@ modules for a bit more context.
 
 =cut
 
-=head1 CONSTRUCTOR
+=head1 METHODS
 
 =head2 $obj = I<CLASS>->new( %OPTS )
 
@@ -54,6 +54,111 @@ Currently that includes:
 =back
 
 NB: Your Wasmer may not support all of the above.
+
+=head2 $wasi = I<CLASS>->create_wasi( %OPTS )
+
+Creates a L<Wasm::Wasmer::WASI> instance. Give $wasi to the appropriate
+method of L<Wasm::Wasmer::Module>.
+
+The %OPTS correspond to L<Wasmer’s corresponding interface|https://docs.rs/wasmer-c-api/2.0.0/wasmer_c_api/wasm_c_api/wasi/index.html>. All are optional:
+
+=over
+
+=item * C<name> - defaults to empty-string
+
+=item * C<args> - arrayref
+
+=item * C<env> - arrayref of key-value pairs
+
+=item * C<stdin> - either undef (default) or C<inherit>
+
+=item * C<stdout> - either C<capture> (default) or C<inherit>
+
+=item * C<stderr> - either C<capture> (default) or C<inherit>
+
+=item * C<preopen_dirs> - arrayref of real paths
+
+=item * C<map_dirs> - hashref of WASI-alias to real-path
+
+=back
+
+=cut
+
+my %WASI_EXPECT_OPT = map { ($_ => 1) } (
+    'name',
+    'args',
+    'stdin', 'stdout', 'stderr',
+    'env',
+    'preopen_dirs',
+    'map_dirs',
+);
+
+my %WASI_STDIN_OPTS = map { $_ => 1 } ('inherit');
+my %WASI_STDOUT_STDERR_OPTS = map { $_ => 1 } ('inherit', 'capture');
+
+sub create_wasi {
+    my ($self, %opts) = @_;
+
+    my $name = $opts{'name'};
+    if (defined $name) {
+        if (-1 != index($name, "\0")) {
+            Carp::croak "Name ($name) must not include NUL bytes!";
+        }
+    }
+    else {
+        $name = q<>;
+    }
+
+    my @extra = sort grep { !$WASI_EXPECT_OPT{$_} } keys %opts;
+    die "Unknown: @extra" if @extra;
+
+    if (my $args_ar = $opts{'args'}) {
+        my @bad = grep { -1 != index($_, "\0") } @$args_ar;
+        Carp::croak "Arguments (@bad) must not include NUL bytes!" if @bad;
+    }
+
+    my $v;
+
+    $v = $opts{'stdin'};
+    if (defined $v && !$WASI_STDIN_OPTS{$v}) {
+        Carp::croak "Bad stdin: $v";
+    }
+
+    for my $opt ('stdout', 'stderr') {
+        $v = $opts{$opt};
+
+        if (defined $v && !$WASI_STDOUT_STDERR_OPTS{$v}) {
+            Carp::croak "Bad $opt: $v";
+        }
+    }
+
+    if (my $env_ar = $opts{'env'}) {
+        Carp::croak "Uneven environment list!" if @$env_ar % 2;
+
+        my @bad = grep { -1 != index($_, "\0") } @$env_ar;
+        Carp::croak "Environment (@bad) must not include NUL bytes!" if @bad;
+    }
+
+    my $preopen_dirs_ar = $opts{'preopen_dirs'};
+    my $map_dirs_hr = $opts{'map_dirs'};
+
+    my @all_paths = (
+        ($preopen_dirs_ar ? @$preopen_dirs_ar : ()),
+        ($map_dirs_hr ? %$map_dirs_hr : ()),
+    );
+
+    my @bad_paths = grep { -1 != index($_, "\0") } @all_paths;
+    if (@bad_paths) {
+        require List::Util;
+        @bad_paths = sort( List::Util::uniq(@bad_paths) );
+
+        Carp::croak "Paths (@bad_paths) must not include NUL bytes!";
+    }
+
+    return $self->_create_wasi($name, \%opts);
+}
+
+#----------------------------------------------------------------------
 
 =head2 IMPORTS
 
