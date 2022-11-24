@@ -39,13 +39,13 @@ jobs:
       image: perldocker/perl-tester:${{ matrix.perl-version }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@main
       - name: perl -V
         run: perl -V
       - name: Install dependencies
         run: apt install -y libtinfo5
       - name: Download & unpack Wasmer
-        run: mkdir wasmer && cd wasmer && curl -L https://github.com/wasmerio/wasmer/releases/download/3.0.1/wasmer-linux-amd64.tar.gz | tar -xzf -
+        run: mkdir wasmer && cd wasmer && curl -L https://github.com/wasmerio/wasmer/releases/download/v3.0.1/wasmer-linux-amd64.tar.gz | tar -xzf -
       - name: Install Dependencies
         run: cpanm --notest --installdeps --with-configure --with-develop .
       - name: perl Makefile.PL
