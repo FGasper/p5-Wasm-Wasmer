@@ -1,7 +1,7 @@
 # NAME
 
-Wasm::Wasmer - [WebAssembly](https://webassembly.org/) in Perl via
-[Wasmer](http://wasmer.io/Wasmer)
+Wasm::Wasmer - [WebAssembly](https://webassembly.org) in Perl via
+[Wasmer](https://wasmer.io)
 
 # SYNOPSIS
 
@@ -32,7 +32,7 @@ This provides a simple, fast way to run WebAssembly (WASM) in Perl.
 We mostly follow the relationships from
 [Wasmer’s C API](https://docs.rs/wasmer-c-api):
 
-- [Wasm::Wasmer::Store](https://metacpan.org/pod/Wasm%3A%3AWasmer%3A%3AStore) manages Wasmer’s global state, including
+- [Wasm::Wasmer::Store](https://metacpan.org/pod/Wasm%3A%3AWasmer%3A%3AStore) manages Wasmer’s state, including
 storage of any imports & exports. It contains compiler & engine
 configuration as well. This object can be auto-created by default
 or manually instantiated.
@@ -57,7 +57,7 @@ Binary payloads (e.g., memory contents) are byte strings.
 # SEE ALSO
 
 [Wasm::Wasmtime](https://metacpan.org/pod/Wasm%3A%3AWasmtime) is an FFI binding to
-[https://github.com/bytecodealliance/wasmtime](https://github.com/bytecodealliance/wasmtime), a similar project to Wasmer.
+[https://wasmtime.dev](https://wasmtime.dev), a similar project to Wasmer.
 
 [Wasm](https://metacpan.org/pod/Wasm) provides syntactic sugar around Wasm::Wasmtime.
 

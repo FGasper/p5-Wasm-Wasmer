@@ -21,8 +21,8 @@ XSLoader::load();
 
 =head1 NAME
 
-Wasm::Wasmer - L<WebAssembly|https://webassembly.org/> in Perl via
-L<Wasmer|http://wasmer.io/Wasmer>
+Wasm::Wasmer - L<WebAssembly|https://webassembly.org> in Perl via
+L<Wasmer|https://wasmer.io>
 
 =head1 SYNOPSIS
 
@@ -55,7 +55,7 @@ L<Wasmer’s C API|https://docs.rs/wasmer-c-api>:
 
 =over
 
-=item * L<Wasm::Wasmer::Store> manages Wasmer’s global state, including
+=item * L<Wasm::Wasmer::Store> manages Wasmer’s state, including
 storage of any imports & exports. It contains compiler & engine
 configuration as well. This object can be auto-created by default
 or manually instantiated.
@@ -84,7 +84,7 @@ Binary payloads (e.g., memory contents) are byte strings.
 =head1 SEE ALSO
 
 L<Wasm::Wasmtime> is an FFI binding to
-L<https://github.com/bytecodealliance/wasmtime>, a similar project to Wasmer.
+L<https://wasmtime.dev>, a similar project to Wasmer.
 
 L<Wasm> provides syntactic sugar around Wasm::Wasmtime.
 

@@ -895,7 +895,7 @@ sub test_memory_export : Tests(11) {
     return;
 }
 
-sub test_table_export : Tests(2) {
+sub test_table_export : Tests(4) {
     my $ok_wat = q<
         (module
             (table (export "mytable") 2 4 funcref)
@@ -937,6 +937,22 @@ sub test_table_export : Tests(2) {
         },
         'table object',
     );
+
+    SKIP: {
+        skip( 'Not implemented in Wasmer yet', 2 );
+
+        is(
+            $table_obj->grow(1),
+            $table_obj,
+            'grow() returns the table',
+        );
+
+        is(
+            $table_obj->size(),
+            3,
+            'grow() does its thing',
+        );
+    };
 
     return;
 }
