@@ -57,15 +57,11 @@ jobs:
         run: apt install -y libtinfo5
       - run: touch ~/.profile
       - name: Download & unpack Wasmer
-        #run: mkdir wasmer && cd wasmer && curl -L https://github.com/wasmerio/wasmer/releases/download/v${{ matrix.wasmer-version }}/wasmer-linux-amd64.tar.gz | tar -xzf -
-        run: curl https://get.wasmer.io -sSfL | sh
-      - run: source ~/.profile
+        run: curl https://get.wasmer.io -sSfL | sh ${{ matrix.wasmer-version }}
       - name: Install Dependencies
         run: cpanm --notest --installdeps --with-configure --with-develop .
       - name: perl Makefile.PL
-        run: PATH=$PATH:./wasmer/bin perl Makefile.PL
-        env:
-            WASMER_DIR: ./wasmer
+        run: source ~/.profile && perl Makefile.PL
       - name: make
         run: make
       - name: Run Tests
@@ -74,13 +70,11 @@ jobs:
   mac:
     runs-on: macOS-latest
 
-    name: macOS (Wasmer ${{ matrix.wasmer-version }})
+    name: macOS
 
-    strategy:
-      fail-fast: false
-      matrix:
-        wasmer-version:
-          - 3.1.0
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - uses: actions/checkout@main
@@ -92,11 +86,10 @@ jobs:
         run: perl -V
       - name: Install Dependencies
         run: cpanm --verbose --notest --installdeps --with-develop --with-configure .
+      - run: touch ~/.profile
       - name: Download & unpack Wasmer
-        run: mkdir wasmer && cd wasmer && curl -L https://github.com/wasmerio/wasmer/releases/download/v${{ matrix.wasmer-version }}/wasmer-darwin-amd64.tar.gz | tar -xzf -
-      - run: PATH=$PATH:./wasmer/bin perl Makefile.PL
-        env:
-            WASMER_DIR: ./wasmer
+        run: curl https://get.wasmer.io -sSfL | sh
+      - run: source ~/.profile && perl Makefile.PL
       - name: make
         run: make
       - name: Run tests (with coverage)
@@ -122,7 +115,7 @@ jobs:
             setup: apk add wget curl perl-app-cpanminus perl-dev make gcc libc-dev
           - container: arm64v8/ubuntu
             tarball: aarch64
-            setup: apt update && apt install -y cpanminus gcc curl
+            setup: apt update && apt install -y cpanminus libtest2-suite-perl gcc curl
 
     steps:
       - uses: actions/checkout@main
@@ -131,5 +124,7 @@ jobs:
       - name: Get the qemu container
         run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
       - name: Run tests on ${{ matrix.platform.container }}
-        run: docker run --rm --interactive --mount type=bind,source=$(pwd),target=/host ${{ matrix.platform.container }} sh -c "${{ matrix.platform.setup }}; cd /host; perl -V; mkdir wasmer && cd wasmer && curl -L -v https://github.com/wasmerio/wasmer/releases/download/v${{ matrix.wasmer-version }}/wasmer-linux-${{ matrix.platform.tarball }}.tar.gz | tar -xzf - && cd .. && cpanm --verbose --notest --installdeps --with-configure --with-develop .; PATH=$PATH:./wasmer/bin WASMER_DIR=./wasmer perl Makefile.PL; make -j3 -j3; PERL_DL_NONLAZY=1 prove -wlvmb t"
+        run: docker run --rm --interactive --mount type=bind,source=$(pwd),target=/host ${{ matrix.platform.container }} sh -c "${{ matrix.platform.setup }}; cd /host; perl -V; mkdir wasmer && cd wasmer && curl -L https://github.com/wasmerio/wasmer/releases/download/v${{ matrix.wasmer-version }}/wasmer-linux-${{ matrix.platform.tarball }}.tar.gz | tar -xzf - && cd .. && cpanm --verbose --notest --installdeps --with-configure --with-develop .; PATH=$PATH:./wasmer/bin WASMER_DIR=./wasmer perl Makefile.PL; make -j3 -j3; PERL_DL_NONLAZY=1 prove -wlvmb t"
+
+# This downloads the wrong Wasmer on Alpine:
 #        run: docker run --rm --interactive --mount type=bind,source=$(pwd),target=/host ${{ matrix.platform.container }} sh -c "${{ matrix.platform.setup }}; touch ~/.profile; curl https://get.wasmer.io -sSfL | sh && cd /host && perl -V && cpanm --verbose --notest --installdeps --with-configure --with-develop .; source ~/.profile; perl Makefile.PL; make -j3 -j3; PERL_DL_NONLAZY=1 prove -wlvmb t"
