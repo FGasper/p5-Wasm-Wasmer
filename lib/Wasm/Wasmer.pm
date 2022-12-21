@@ -29,13 +29,14 @@ L<Wasmer|https://wasmer.io>
     use Wasm::Wasmer;
 
     my $wasm = Wasm::Wasmer::wat2wasm( <<END );
-        (module
+    (module
         (type (func (param i32 i32) (result i32)))
-        (func (type 0)
+        (func $add (type 0)
             local.get 0
             local.get 1
             i32.add)
-        (export "sum" (func 0)))
+        (export "sum" (func $add))
+    )
     END
 
     my $instance = Wasm::Wasmer::Module->new($wasm)->create_instance();
@@ -96,6 +97,16 @@ This namespace defines the following:
 
 Converts WASM text format to its binary-format equivalent. $TEXT
 should be (character-decoded) text.
+
+=head1 LICENSE & COPYRIGHT
+
+Copyright 2022 Gasper Software Consulting. All rights reserved.
+
+This library is licensed under the same terms as Perl itself.
+See L<perlartistic>.
+
+This library was originally a research project at
+L<cPanel, L.L.C.|https://cpanel.net>.
 
 =cut
 

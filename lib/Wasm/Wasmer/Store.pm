@@ -17,7 +17,12 @@ you can pass options like, e.g.:
 
     my $store = Wasm::Wasmer::Store->new(
         compiler => 'llvm',
-        engine => 'dylib',
+    );
+
+    my $func = $store->create_function(
+        code    => sub { ... },
+        params  => [ Wasm::Wasmer::WASM_I32, Wasm::Wasmer::WASM_I32 ],
+        results => [ Wasm::Wasmer::WASM_F64 ],
     );
 
 See L<Wasm::Wasmer::Module> for what you can do with $store.
@@ -28,9 +33,9 @@ See L<Wasm::Wasmer::Module> for what you can do with $store.
 
 This class represents a WASM “store” and “engine” pair.
 See Wasmer’s
-L<store|https://docs.rs/wasmer-c-api/2.0.0/wasmer_c_api/wasm_c_api/store>
+L<store|https://docs.rs/wasmer-c-api/latest/wasmer/wasm_c_api/store>
 and
-L<engine|https://docs.rs/wasmer-c-api/2.0.0/wasmer_c_api/wasm_c_api/engine>
+L<engine|https://docs.rs/wasmer-c-api/latest/wasmer/wasm_c_api/engine>
 modules for a bit more context.
 
 =cut
@@ -49,8 +54,6 @@ Currently that includes:
 
 =item * C<compiler> - C<cranelift>, C<llvm>, or C<singlepass>
 
-=item * C<engine> - C<universal>, C<dylib>
-
 =back
 
 NB: Your Wasmer may not support all of the above.
@@ -60,7 +63,7 @@ NB: Your Wasmer may not support all of the above.
 Creates a L<Wasm::Wasmer::WASI> instance. Give $wasi to the appropriate
 method of L<Wasm::Wasmer::Module>.
 
-The %OPTS correspond to L<Wasmer’s corresponding interface|https://docs.rs/wasmer-c-api/2.0.0/wasmer_c_api/wasm_c_api/wasi/index.html>. All are optional:
+The %OPTS correspond to L<Wasmer’s corresponding interface|https://docs.rs/wasmer-c-api/latest/wasmer/wasm_c_api/wasi/index.html>. All are optional:
 
 =over
 
@@ -165,7 +168,7 @@ sub create_wasi {
 To import a global or memory into WebAssembly you first need to create
 a Perl object to represent that WebAssembly object.
 
-The following create WebAssembly objects the store and return Perl objects
+The following create WebAssembly objects in the store and return Perl objects
 that interact with those WebAssembly objects.
 
 (NB: The Perl objects do I<not> trigger destruction of the WebAssembly objects
@@ -213,6 +216,22 @@ globals of different types:
 
 Each of the above creates a WebAssembly global and a Perl
 L<Wasm::Wasmer::Global> instance to interface with it.
+
+=head3 $obj = I<OBJ>->create_function( %OPTS )
+
+Creates a L<Wasm::Wasmer::Function> instance. %OPTS are:
+
+=over
+
+=item * C<code> - (required) A Perl code reference.
+
+=item * C<params> - An array reference of Perl constants (e.g.,
+Wasm::Wasmer::WASM_I32) that indicates the function inputs. Defaults
+to empty.
+
+=item * C<results> - Like C<params> but for the outputs.
+
+=back
 
 =head3 Tables
 

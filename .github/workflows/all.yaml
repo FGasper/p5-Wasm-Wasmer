@@ -21,6 +21,7 @@ jobs:
       fail-fast: false
       matrix:
         perl-version:
+          - '5.36'
           - '5.34'
           - '5.32'
           - '5.30'
@@ -34,6 +35,9 @@ jobs:
           - '5.14'
           - '5.12'
           - '5.10'
+        wasmer-version:
+          - 3.0.1
+          - 3.1.0
 
     container:
       image: perldocker/perl-tester:${{ matrix.perl-version }}
@@ -45,7 +49,7 @@ jobs:
       - name: Install dependencies
         run: apt install -y libtinfo5
       - name: Download & unpack Wasmer
-        run: mkdir wasmer && cd wasmer && curl -L https://github.com/wasmerio/wasmer/releases/download/v3.0.1/wasmer-linux-amd64.tar.gz | tar -xzf -
+        run: mkdir wasmer && cd wasmer && curl -L https://github.com/wasmerio/wasmer/releases/download/v${{ matrix.wasmer-version }}/wasmer-linux-amd64.tar.gz | tar -xzf -
       - name: Install Dependencies
         run: cpanm --notest --installdeps --with-configure --with-develop .
       - name: perl Makefile.PL
@@ -56,3 +60,59 @@ jobs:
         run: make
       - name: Run Tests
         run: prove -wlvmb t
+
+  mac:
+    runs-on: macOS-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        wasmer-version:
+          - 3.1.0
+
+    steps:
+      - uses: actions/checkout@main
+        with:
+            submodules: recursive
+      - name: Set up Perl
+        run: brew install cpanminus
+      - name: perl -V
+        run: perl -V
+      - name: Install Dependencies
+        run: cpanm --verbose --notest --installdeps --with-develop --with-configure .
+      - name: Download & unpack Wasmer
+        run: mkdir wasmer && cd wasmer && curl -L https://github.com/wasmerio/wasmer/releases/download/v${{ matrix.wasmer-version }}/wasmer-darwin-amd64.tar.gz | tar -xzf -
+      - run: PATH=$PATH:./wasmer/bin perl Makefile.PL
+        env:
+            WASMER_DIR: ./wasmer
+      - name: make
+        run: make
+      - name: Run tests (with coverage)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -L https://cpanmin.us | perl - --notest Devel::Cover::Report::Coveralls
+          `perl -MConfig -E'print $Config::Config{"sitebin"}'`/cover -test -report Coveralls -ignore_re easyxs
+
+  qemu:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - container: amd64/alpine
+            tarball: musl-amd64
+            setup: apk add wget perl-app-cpanminus perl-dev make gcc libc-dev
+          - container: arm64v8/ubuntu
+            tarball: aarch64
+            setup: apt update && apt install -y cpanminus gcc
+
+    steps:
+      - uses: actions/checkout@main
+        with:
+            submodules: recursive
+      - name: Get the qemu container
+        run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+      - name: Run tests on ${{ matrix.platform.container }}
+        run: docker run --rm --interactive --mount type=bind,source=$(pwd),target=/host ${{ matrix.platform.container }} sh -c "${{ matrix.platform.setup }}; cd /host; perl -V; mkdir wasmer && cd wasmer && curl -L https://github.com/wasmerio/wasmer/releases/download/v${{ matrix.wasmer-version }}/wasmer-${{ matrix.platform.tarball }}.tar.gz | tar -xzf -; cd ..; cpanm --verbose --notest --installdeps --with-configure --with-develop .; PATH=$PATH:./wasmer/bin WASMER_DIR=./wasmer perl Makefile.PL; make -j3 -j3; PERL_DL_NONLAZY=1 prove -wlvmb t"

@@ -49,9 +49,6 @@ If the function returns multiple items, scalar context is forbidden.
 then the WASI start function will run automatically if needed prior to
 running I<OBJ>.
 
-=item * Prior to 10 August 2021 Wasmer didn’t support calling host functions.
-It would abort the host process if that happened.
-
 =back
 
 =cut
