@@ -62,6 +62,10 @@ to supporting Linux and macOS only. (Windows might also work?)
 
 # SEE ALSO
 
+[Wasm::Wasm3](https://metacpan.org/pod/Wasm%3A%3AWasm3) is an XS binding to [wasm3](https://github.com/wasm3/wasm3),
+a broadly-portable WebAssembly interpreter. Try it if you need to run WASM
+and don’t have Wasmer (or Wasmtime).
+
 [Wasm::Wasmtime](https://metacpan.org/pod/Wasm%3A%3AWasmtime) is an FFI binding to
 [https://wasmtime.dev](https://wasmtime.dev), a similar project to Wasmer.
 

@@ -89,6 +89,10 @@ to supporting Linux and macOS only. (Windows might also work?)
 
 =head1 SEE ALSO
 
+L<Wasm::Wasm3> is an XS binding to L<wasm3|https://github.com/wasm3/wasm3>,
+a broadly-portable WebAssembly interpreter. Try it if you need to run WASM
+and don’t have Wasmer (or Wasmtime).
+
 L<Wasm::Wasmtime> is an FFI binding to
 L<https://wasmtime.dev>, a similar project to Wasmer.
 
