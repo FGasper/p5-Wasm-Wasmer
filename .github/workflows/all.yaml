@@ -21,7 +21,7 @@ jobs:
 
     defaults:
       run:
-        shell: /bin/bash
+        shell: bash
 
     strategy:
       fail-fast: false
