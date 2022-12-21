@@ -51,15 +51,15 @@ jobs:
     steps:
       - uses: actions/checkout@main
       - run: perl -V
-      - name: Install system dependencies
-        run: apt install -y libtinfo5
-      - run: touch ~/.profile
+#      - name: Install system dependencies
+#        run: apt install -y libtinfo5
+      - run: touch ~/.bashrc
       - name: Download & unpack Wasmer
         run: curl https://get.wasmer.io -sSfL | sh -s v${{ matrix.wasmer-version }}
       - name: Install CPAN dependencies
         run: cpanm --notest --installdeps --with-configure --with-develop .
       - name: perl Makefile.PL
-        run: source ~/.profile && perl Makefile.PL
+        run: source ~/.bashrc && perl Makefile.PL
       - name: make
         run: make
       - name: Run Tests
@@ -84,12 +84,9 @@ jobs:
         run: perl -V
       - name: Install Dependencies
         run: cpanm --verbose --notest --installdeps --with-develop --with-configure .
-      - run: touch ~/.profile
       - name: Download & unpack Wasmer
         run: curl https://get.wasmer.io -sSfL | sh
-      - run: source ~/.profile && env | sort
-      - run: cat ~/.profile
-      - run: source ~/.profile && perl Makefile.PL
+      - run: source ~/.bashrc && perl Makefile.PL
       - name: make
         run: make
       - name: Run tests (with coverage)
