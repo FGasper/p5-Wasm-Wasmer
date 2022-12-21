@@ -53,8 +53,6 @@ jobs:
         with:
             submodules: recursive
       - run: perl -V
-#      - name: Install system dependencies
-#        run: apt install -y libtinfo5
       - run: touch ~/.bashrc
       - name: Download & unpack Wasmer
         run: curl https://get.wasmer.io -sSfL | sh -s v${{ matrix.wasmer-version }}
@@ -70,7 +68,7 @@ jobs:
   mac:
     runs-on: macOS-latest
 
-    name: macOS
+    name: macOS (latest Wasmer)
 
     defaults:
       run:
