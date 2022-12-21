@@ -84,6 +84,7 @@ jobs:
         run: perl -V
       - name: Install Dependencies
         run: cpanm --verbose --notest --installdeps --with-develop --with-configure .
+      - run: touch ~/.bashrc
       - name: Download & unpack Wasmer
         run: curl https://get.wasmer.io -sSfL | sh
       - run: source ~/.bashrc && perl Makefile.PL

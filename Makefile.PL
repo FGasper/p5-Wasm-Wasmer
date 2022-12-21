@@ -13,6 +13,8 @@ $wasmer_version =~ s<\A.*?([0-9]).*><$1>ms or do {
     die "Unrecognized Wasmer version: $wasmer_version\n";
 };
 
+print "Wasmer version: $wasmer_version\n";
+
 if ($wasmer_version < 3) {
     die "Wasmer v3 or above is required.\n";
 }

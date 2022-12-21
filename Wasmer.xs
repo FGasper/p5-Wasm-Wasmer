@@ -1,11 +1,4 @@
-#pragma clang diagnostic ignored "-Wcompound-token-split-by-macro"
-
-#define PERL_NO_GET_CONTEXT
-#include "EXTERN.h"
-#include "perl.h"
-#include "XSUB.h"
-
-#include "ppport.h"
+#include "easyxs/easyxs.h"
 
 #include <stdio.h>
 #include <assert.h>
