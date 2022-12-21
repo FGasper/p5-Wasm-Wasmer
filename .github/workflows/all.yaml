@@ -50,8 +50,11 @@ jobs:
         run: perl -V
       - name: Install dependencies
         run: apt install -y libtinfo5
+      - run: touch ~/.profile
       - name: Download & unpack Wasmer
-        run: mkdir wasmer && cd wasmer && curl -L https://github.com/wasmerio/wasmer/releases/download/v${{ matrix.wasmer-version }}/wasmer-linux-amd64.tar.gz | tar -xzf -
+        #run: mkdir wasmer && cd wasmer && curl -L https://github.com/wasmerio/wasmer/releases/download/v${{ matrix.wasmer-version }}/wasmer-linux-amd64.tar.gz | tar -xzf -
+        run: curl https://get.wasmer.io -sSfL | sh
+      - run: source ~/.profile
       - name: Install Dependencies
         run: cpanm --notest --installdeps --with-configure --with-develop .
       - name: perl Makefile.PL
@@ -123,4 +126,5 @@ jobs:
       - name: Get the qemu container
         run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
       - name: Run tests on ${{ matrix.platform.container }}
-        run: docker run --rm --interactive --mount type=bind,source=$(pwd),target=/host ${{ matrix.platform.container }} sh -c "${{ matrix.platform.setup }}; cd /host; perl -V; mkdir wasmer && cd wasmer && curl -L -v https://github.com/wasmerio/wasmer/releases/download/v${{ matrix.wasmer-version }}/wasmer-${{ matrix.platform.tarball }}.tar.gz | tar -xzf - && cd .. && cpanm --verbose --notest --installdeps --with-configure --with-develop .; PATH=$PATH:./wasmer/bin WASMER_DIR=./wasmer perl Makefile.PL; make -j3 -j3; PERL_DL_NONLAZY=1 prove -wlvmb t"
+        #run: docker run --rm --interactive --mount type=bind,source=$(pwd),target=/host ${{ matrix.platform.container }} sh -c "${{ matrix.platform.setup }}; cd /host; perl -V; mkdir wasmer && cd wasmer && curl -L -v https://github.com/wasmerio/wasmer/releases/download/v${{ matrix.wasmer-version }}/wasmer-linux-${{ matrix.platform.tarball }}.tar.gz | tar -xzf - && cd .. && cpanm --verbose --notest --installdeps --with-configure --with-develop .; PATH=$PATH:./wasmer/bin WASMER_DIR=./wasmer perl Makefile.PL; make -j3 -j3; PERL_DL_NONLAZY=1 prove -wlvmb t"
+        run: docker run --rm --interactive --mount type=bind,source=$(pwd),target=/host ${{ matrix.platform.container }} sh -c "${{ matrix.platform.setup }}; curl https://get.wasmer.io -sSfL | sh && cd /host && perl -V && cpanm --verbose --notest --installdeps --with-configure --with-develop .; perl Makefile.PL; make -j3 -j3; PERL_DL_NONLAZY=1 prove -wlvmb t"
