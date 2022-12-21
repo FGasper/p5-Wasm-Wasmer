@@ -57,9 +57,10 @@ jobs:
         run: apt install -y libtinfo5
       - run: touch ~/.profile
       - name: Download & unpack Wasmer
-        run: curl https://get.wasmer.io -sSfL | sh -s ${{ matrix.wasmer-version }}
+        run: curl https://get.wasmer.io -sSfL | sh -s v${{ matrix.wasmer-version }}
       - name: Install Dependencies
         run: cpanm --notest --installdeps --with-configure --with-develop .
+      - run: cat ~/.profile
       - name: perl Makefile.PL
         run: source ~/.profile && perl Makefile.PL
       - name: make
@@ -89,6 +90,7 @@ jobs:
       - run: touch ~/.profile
       - name: Download & unpack Wasmer
         run: curl https://get.wasmer.io -sSfL | sh
+      - run: source ~/.profile && env
       - run: source ~/.profile && perl Makefile.PL
       - name: make
         run: make
