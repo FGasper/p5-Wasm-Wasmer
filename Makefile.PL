@@ -54,11 +54,11 @@ WriteMakefile(
         resources => {
             repository => {
                 type => 'git',
-                url => 'git://github.com/cpanel/p5-Wasm-Wasmer.git',
-                web => 'https://github.com/cpanel/p5-Wasm-Wasmer',
+                url => 'git://github.com/FGasper/p5-Wasm-Wasmer.git',
+                web => 'https://github.com/FGasper/p5-Wasm-Wasmer',
             },
             bugtracker => {
-                web => 'https://github.com/cpanel/p5-Wasm-Wasmer/issues',
+                web => 'https://github.com/FGasper/p5-Wasm-Wasmer/issues',
             },
         },
     },
