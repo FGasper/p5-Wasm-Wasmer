@@ -1,19 +1,14 @@
-
-#my $wasmer_cflags = `~/.wasmer/bin/wasmer config --cflags`;
-#my $wasmer_cflags = '-I/Users/felipe/.wasmer/include';
-
-#my $wasmer_lflags = `~/.wasmer/bin/wasmer config --libs`;
-#print "LFLAGS: $wasmer_lflags\n";
+#!/usr/bin/env perl
 
 my $wasmer_version = `wasmer version` or do {
     die "no Wasmer version found (errno=$!)";
 };
 
+print "Wasmer version: $wasmer_version\n";
+
 $wasmer_version =~ s<\A.*?([0-9]).*><$1>ms or do {
     die "Unrecognized Wasmer version: $wasmer_version\n";
 };
-
-print "Wasmer version: $wasmer_version\n";
 
 if ($wasmer_version < 3) {
     die "Wasmer v3 or above is required.\n";
