@@ -17,6 +17,8 @@ jobs:
   linux:
     runs-on: ubuntu-latest
 
+    name: Linux (Perl ${{matrix.perl-version}}, Wasmer ${{matrix.wasmer-version}})
+
     strategy:
       fail-fast: false
       matrix:
@@ -64,6 +66,8 @@ jobs:
   mac:
     runs-on: macOS-latest
 
+    name: macOS (Wasmer ${{ matrix.wasmer-version }})
+
     strategy:
       fail-fast: false
       matrix:
@@ -97,16 +101,20 @@ jobs:
   qemu:
     runs-on: ubuntu-latest
 
+    name: ${{ matrix.platform.container }} (Wasmer ${{ matrix.wasmer-version }})
+
     strategy:
       fail-fast: false
       matrix:
+        wasmer-version:
+            - 3.1.0
         platform:
           - container: amd64/alpine
             tarball: musl-amd64
-            setup: apk add wget perl-app-cpanminus perl-dev make gcc libc-dev
+            setup: apk add wget curl perl-app-cpanminus perl-dev make gcc libc-dev
           - container: arm64v8/ubuntu
             tarball: aarch64
-            setup: apt update && apt install -y cpanminus gcc
+            setup: apt update && apt install -y cpanminus gcc curl
 
     steps:
       - uses: actions/checkout@main
@@ -115,4 +123,4 @@ jobs:
       - name: Get the qemu container
         run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
       - name: Run tests on ${{ matrix.platform.container }}
-        run: docker run --rm --interactive --mount type=bind,source=$(pwd),target=/host ${{ matrix.platform.container }} sh -c "${{ matrix.platform.setup }}; cd /host; perl -V; mkdir wasmer && cd wasmer && curl -L https://github.com/wasmerio/wasmer/releases/download/v${{ matrix.wasmer-version }}/wasmer-${{ matrix.platform.tarball }}.tar.gz | tar -xzf -; cd ..; cpanm --verbose --notest --installdeps --with-configure --with-develop .; PATH=$PATH:./wasmer/bin WASMER_DIR=./wasmer perl Makefile.PL; make -j3 -j3; PERL_DL_NONLAZY=1 prove -wlvmb t"
+        run: docker run --rm --interactive --mount type=bind,source=$(pwd),target=/host ${{ matrix.platform.container }} sh -c "${{ matrix.platform.setup }}; cd /host; perl -V; mkdir wasmer && cd wasmer && curl -L -v https://github.com/wasmerio/wasmer/releases/download/v${{ matrix.wasmer-version }}/wasmer-${{ matrix.platform.tarball }}.tar.gz | tar -xzf - && cd .. && cpanm --verbose --notest --installdeps --with-configure --with-develop .; PATH=$PATH:./wasmer/bin WASMER_DIR=./wasmer perl Makefile.PL; make -j3 -j3; PERL_DL_NONLAZY=1 prove -wlvmb t"

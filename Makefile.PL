@@ -5,8 +5,9 @@
 #my $wasmer_lflags = `~/.wasmer/bin/wasmer config --libs`;
 #print "LFLAGS: $wasmer_lflags\n";
 
-my $wasmer_version = `wasmer version`;
-die 'no version' if !$wasmer_version;
+my $wasmer_version = `wasmer version` or do {
+    die "no Wasmer version found (errno=$!)";
+};
 
 $wasmer_version =~ s<\A.*?([0-9]).*><$1>ms or do {
     die "Unrecognized Wasmer version: $wasmer_version\n";
