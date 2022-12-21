@@ -57,7 +57,7 @@ jobs:
         run: apt install -y libtinfo5
       - run: touch ~/.profile
       - name: Download & unpack Wasmer
-        run: curl https://get.wasmer.io -sSfL | sh ${{ matrix.wasmer-version }}
+        run: curl https://get.wasmer.io -sSfL | sh -s ${{ matrix.wasmer-version }}
       - name: Install Dependencies
         run: cpanm --notest --installdeps --with-configure --with-develop .
       - name: perl Makefile.PL
@@ -112,10 +112,10 @@ jobs:
         platform:
           - container: amd64/alpine
             tarball: musl-amd64
-            setup: apk add wget curl perl-app-cpanminus perl-dev make gcc libc-dev
+            setup: apk add wget curl perl-app-cpanminus perl-dev perl-test2-suite perl-test-class make gcc libc-dev
           - container: arm64v8/ubuntu
             tarball: aarch64
-            setup: apt update && apt install -y cpanminus libtest2-suite-perl gcc curl
+            setup: apt update && apt install -y cpanminus libtest2-suite-perl libtest-class-perl gcc curl
 
     steps:
       - uses: actions/checkout@main
