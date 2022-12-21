@@ -55,6 +55,11 @@ characters will cause encoding bugs.
 
 Binary payloads (e.g., memory contents) are byte strings.
 
+# PLATFORM SUPPORT
+
+As of this writing, Wasmer’s platform support constrains this module
+to supporting Linux and macOS only. (Windows might also work?)
+
 # SEE ALSO
 
 [Wasm::Wasmtime](https://metacpan.org/pod/Wasm%3A%3AWasmtime) is an FFI binding to

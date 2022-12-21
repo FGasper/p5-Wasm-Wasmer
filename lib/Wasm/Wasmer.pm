@@ -13,7 +13,7 @@ use Wasm::Wasmer::Instance;
 
 use XSLoader;
 
-our $VERSION = '0.01_01';
+our $VERSION = '0.01';
 
 XSLoader::load();
 
@@ -81,6 +81,11 @@ characters will cause encoding bugs.
 (TIP: Always incorporate code points 128-255 into your testing.)
 
 Binary payloads (e.g., memory contents) are byte strings.
+
+=head1 PLATFORM SUPPORT
+
+As of this writing, Wasmer’s platform support constrains this module
+to supporting Linux and macOS only. (Windows might also work?)
 
 =head1 SEE ALSO
 
